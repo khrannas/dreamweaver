@@ -4,6 +4,15 @@
 echo "🚀 Setting up StoryMagic Development Environment"
 echo "================================================"
 
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
     echo "❌ Node.js is not installed. Please install Node.js 18+ first."
@@ -18,6 +27,20 @@ if [ "$NODE_VERSION" -lt 18 ]; then
 fi
 
 echo "✅ Node.js $(node -v) detected"
+
+# Check if concurrently is installed globally
+if ! command -v concurrently &> /dev/null; then
+    echo "📦 Installing concurrently globally..."
+    npm install -g concurrently
+    if [ $? -eq 0 ]; then
+        echo "✅ concurrently installed globally"
+    else
+        echo "❌ Failed to install concurrently"
+        exit 1
+    fi
+else
+    echo "✅ concurrently $(concurrently --version) detected"
+fi
 
 # Setup Backend
 echo ""
@@ -74,19 +97,53 @@ echo ""
 echo "🎉 Setup Complete!"
 echo "=================="
 echo ""
-echo "🚀 To start development:"
-echo "  Backend:  cd backend && npm run dev"
-echo "  Frontend: cd frontend && npm run dev"
+
+# Ask user if they want to start development servers
+echo -e "${CYAN}🚀 Would you like to start the development servers now? (y/n)${NC}"
+read -r response
+
+if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    echo ""
+    echo -e "${GREEN}🚀 Starting StoryMagic Development Servers...${NC}"
+    echo -e "${GREEN}================================================${NC}"
+    echo ""
+
+    # Run both servers concurrently with color coding
+    # Color names: blue for backend, magenta for frontend
+    # This provides clear separation of logs for debugging
+    concurrently \
+      --names "BACKEND,FRONTEND" \
+      --prefix "{name}" \
+      --prefix-colors "blue,magenta" \
+      --handle-input \
+      "cd backend && npm run dev" \
+      "cd frontend && npm run dev"
+
+else
+    echo ""
+    echo -e "${YELLOW}📋 Manual Startup Instructions:${NC}"
+    echo "  Backend:  cd backend && npm run dev"
+    echo "  Frontend: cd frontend && npm run dev"
+    echo ""
+    echo "  Or run both together with colors:"
+    echo "  concurrently --names \"BACKEND,FRONTEND\" --prefix \"{name}\" --prefix-colors \"blue,magenta\" \"cd backend && npm run dev\" \"cd frontend && npm run dev\""
+    echo ""
+fi
+
 echo ""
-echo "🌐 URLs:"
+echo -e "${GREEN}🌐 URLs:${NC}"
 echo "  Backend:  http://localhost:3001"
 echo "  Frontend: http://localhost:8080"
 echo ""
-echo "📝 Don't forget to:"
+echo -e "${YELLOW}📝 Don't forget to:${NC}"
 echo "  1. Add your OPENROUTER_API_KEY to backend/.env"
 echo "  2. Test the backend health: curl http://localhost:3001/health"
 echo ""
-echo "📚 Documentation:"
+echo -e "${CYAN}🎨 Color Coding:${NC}"
+echo "  If you don't see colors, your terminal may not support ANSI colors."
+echo "  The text prefixes (BACKEND/FRONTEND) will still clearly separate logs."
+echo ""
+echo -e "${CYAN}📚 Documentation:${NC}"
 echo "  Backend:  backend/README.md"
 echo "  Frontend: frontend/README.md"
-echo "  Integration: FRONTEND_INTEGRATION_GUIDE.md"
+echo "  Project:  README.md"

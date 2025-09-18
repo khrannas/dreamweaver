@@ -79,9 +79,11 @@ cd storymagic
 
 This script will:
 - ✅ Check Node.js version compatibility
+- ✅ Install concurrently globally (if not present)
 - 📋 Copy environment variable templates
 - 📦 Install dependencies for both backend and frontend
-- 💡 Provide next steps instructions
+- 🚀 **Optionally start both servers concurrently with color-coded output**
+- 💡 Provide comprehensive setup instructions
 
 ### Manual Setup
 
@@ -107,6 +109,38 @@ npm run dev
 - **Frontend**: http://localhost:8080
 - **Backend API**: http://localhost:3001
 - **Health Check**: http://localhost:3001/health
+
+## 🚀 Running Development Servers
+
+### Option 1: Automated (Recommended)
+```bash
+# Run the setup script and choose to start servers
+./setup.sh
+# Answer 'y' when prompted to start development servers
+```
+
+### Option 2: Manual Concurrent
+```bash
+# Install concurrently globally (one time)
+npm install -g concurrently
+
+# Run both servers with color-coded output
+concurrently \
+  --names "BACKEND,FRONTEND" \
+  --prefix "{name}" \
+  --prefix-colors "blue,magenta" \
+  "cd backend && npm run dev" \
+  "cd frontend && npm run dev"
+```
+
+### Option 3: Separate Terminals
+```bash
+# Terminal 1 - Backend
+cd backend && npm run dev
+
+# Terminal 2 - Frontend
+cd frontend && npm run dev
+```
 
 ## 🔧 Environment Variables
 
@@ -193,3 +227,26 @@ This project is built for creating magical bedtime experiences for children.
 ---
 
 **Made with ❤️ for creating magical moments with children** ✨
+
+## 🎨 Color-Coded Development Output
+
+When running both servers concurrently, the output is color-coded for clarity:
+
+- **<span style="color: blue;">BACKEND</span>**: Backend server logs (Express, API calls, AI processing)
+- **<span style="color: magenta;">FRONTEND</span>**: Frontend server logs (Vite, React, hot reload)
+
+Example output:
+```
+BACKEND 🚀 StoryMagic Backend Server Started
+BACKEND 📊 Environment: development
+FRONTEND VITE v5.4.19 ready in 564 ms
+FRONTEND ➜ Local: http://localhost:8080/
+```
+
+**Color Legend:**
+- 🔵 **Blue**: Backend logs and status messages
+- 🟣 **Magenta**: Frontend logs and status messages
+
+**Note:** Colors are only visible in terminals that support ANSI color codes (most modern terminals do). If you don't see colors, the prefix labels ("BACKEND", "FRONTEND") will still clearly distinguish the services.
+
+This makes it easy to distinguish between backend and frontend logs when debugging or monitoring the application.
