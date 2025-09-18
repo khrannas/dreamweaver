@@ -21,14 +21,35 @@ export class StoryGenerationService {
     try {
       logger.info('Generating story options', { profile: profile.name, count });
 
-      const prompt = PromptBuilder.buildStoryOptionsPrompt(profile, count);
+      const stories: StoryOption[] = [];
 
-      const aiResponse = await openRouterClient.generateCompletion(prompt, {
-        maxTokens: 1200,
-        temperature: 0.8, // Higher creativity for variety
-      });
+      // Generate stories one by one to ensure we get the requested count
+      for (let i = 0; i < count; i++) {
+        try {
+          const prompt = PromptBuilder.buildStoryOptionsPrompt(profile, 1);
 
-      const stories = this.parseStoryOptionsResponse(aiResponse, count);
+          const aiResponse = await openRouterClient.generateCompletion(prompt, {
+            maxTokens: 1200, // More tokens for detailed content
+            temperature: 0.8, // Higher creativity for variety
+          });
+
+          const newStories = this.parseStoryOptionsResponse(aiResponse, 1);
+
+          if (newStories.length > 0 && newStories[0]) {
+            // Update the story ID to include the index
+            newStories[0].id = `story_${i + 1}_${Date.now()}`;
+            stories.push(newStories[0]);
+          }
+        } catch (error) {
+          console.warn(`Failed to generate story ${i + 1}:`, error);
+          // Continue with next story instead of failing completely
+        }
+      }
+
+      // If we couldn't generate any stories, throw an error
+      if (stories.length === 0) {
+        throw new Error('Unable to generate any story options');
+      }
 
       // Validate each story option
       const validatedStories = await this.validateStoryOptions(stories, profile);
@@ -39,7 +60,8 @@ export class StoryGenerationService {
       };
 
       logger.info('Story options generated successfully', {
-        storyCount: validatedStories.length
+        storyCount: validatedStories.length,
+        requestedCount: count
       });
 
       return response;
@@ -116,9 +138,78 @@ export class StoryGenerationService {
   }
 
   /**
-   * Parse AI response for story options
+   * Parse AI response for story options (simple text format)
    */
   private static parseStoryOptionsResponse(response: string, count: number): StoryOption[] {
+    try {
+      // Clean the response - remove markdown code blocks
+      let cleanResponse = response.trim();
+      cleanResponse = cleanResponse.replace(/^```.*?\n?/g, '').replace(/\n?```$/g, '');
+
+      // Parse the simple format: TITLE: ..., DESCRIPTION: ..., etc.
+      const lines = cleanResponse.split('\n').map(line => line.trim()).filter(line => line);
+
+      let title = '';
+      let description = '';
+      let duration = 10;
+      let energyLevel: 'high' | 'medium' | 'calming' = 'medium';
+      let contentTags: string[] = ['adventure'];
+
+      for (const line of lines) {
+        if (line.startsWith('TITLE:')) {
+          title = line.substring(6).trim();
+        } else if (line.startsWith('DESCRIPTION:')) {
+          description = line.substring(12).trim();
+        } else if (line.startsWith('DURATION:')) {
+          const durStr = line.substring(9).trim();
+          const durNum = parseInt(durStr, 10);
+          if (!isNaN(durNum) && durNum >= 5 && durNum <= 15) {
+            duration = durNum;
+          }
+        } else if (line.startsWith('ENERGY:')) {
+          const energy = line.substring(7).trim().toLowerCase();
+          if (['high', 'medium', 'calming'].includes(energy)) {
+            energyLevel = energy as 'high' | 'medium' | 'calming';
+          }
+        } else if (line.startsWith('TAGS:')) {
+          const tagsStr = line.substring(5).trim();
+          contentTags = tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag);
+          if (contentTags.length === 0) {
+            contentTags = ['adventure'];
+          }
+        }
+      }
+
+      // Validate that we have the required fields
+      if (title && description && description.length > 50) {
+        const story: StoryOption = {
+          id: `story_1_${Date.now()}`,
+          title,
+          description,
+          estimatedDuration: duration,
+          energyLevel,
+          contentTags,
+          preview: description.substring(0, 100) + (description.length > 100 ? '...' : '')
+        };
+
+        console.log('Successfully parsed story from text format');
+        return [story];
+      }
+
+      // If parsing fails, fall back to text parsing
+      console.warn('Failed to parse text format, falling back to legacy parsing');
+      return this.parseStoryOptionsResponseFallback(response, count);
+
+    } catch (error) {
+      console.warn('Text parsing failed, falling back to legacy parsing');
+      return this.parseStoryOptionsResponseFallback(response, count);
+    }
+  }
+
+  /**
+   * Fallback text parsing for story options (legacy support)
+   */
+  private static parseStoryOptionsResponseFallback(response: string, count: number): StoryOption[] {
     const stories: StoryOption[] = [];
 
     // Split response into individual story blocks
@@ -256,11 +347,8 @@ export class StoryGenerationService {
           continue;
         }
 
-        // Safety check on description
-        const safetyResult = await ContentSafetyService.checkContentSafety(
-          story.description,
-          profile
-        );
+        // Safety check on description (lenient validation for story descriptions)
+        const safetyResult = await this.validateStoryDescription(story.description, profile);
 
         if (safetyResult.isSafe || safetyResult.score >= 70) {
           validatedStories.push(story);
@@ -279,6 +367,53 @@ export class StoryGenerationService {
     }
 
     return validatedStories.length > 0 ? validatedStories : stories.slice(0, 1);
+  }
+
+  /**
+   * Validate story description (more lenient than full story validation)
+   */
+  private static async validateStoryDescription(
+    description: string,
+    _profile: ChildProfile
+  ): Promise<{ isSafe: boolean; score: number; issues: string[] }> {
+    const issues: string[] = [];
+    let score = 100;
+
+    // Check for inappropriate words
+    const inappropriateWords = [
+      'violence', 'death', 'scary', 'monster', 'ghost', 'witch',
+      'curse', 'poison', 'weapon', 'fight', 'battle', 'war'
+    ];
+
+    const lowerDescription = description.toLowerCase();
+    const foundWords = inappropriateWords.filter(word => lowerDescription.includes(word));
+
+    if (foundWords.length > 0) {
+      issues.push(`Contains potentially inappropriate words: ${foundWords.join(', ')}`);
+      score -= 20 * foundWords.length;
+    }
+
+    // Check minimum length (much more lenient for descriptions)
+    const wordCount = description.split(/\s+/).length;
+    const minWords = 15; // Much lower threshold for descriptions
+
+    if (wordCount < minWords) {
+      issues.push(`Description too short (${wordCount} words, minimum ${minWords})`);
+      score -= 30;
+    }
+
+    // Check maximum length
+    const maxWords = 150; // Reasonable limit for descriptions
+    if (wordCount > maxWords) {
+      issues.push(`Description too long (${wordCount} words, maximum ${maxWords})`);
+      score -= 10;
+    }
+
+    return {
+      isSafe: issues.length === 0,
+      score: Math.max(0, score),
+      issues
+    };
   }
 
   /**

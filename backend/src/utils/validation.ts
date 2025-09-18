@@ -3,13 +3,14 @@ import { ValidationResult } from '../types/index.js';
 
 // Child Profile Validation Schema
 export const childProfileSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.union([z.string().uuid(), z.string().min(1)]).optional(),
   name: z.string().min(1).max(50).regex(/^[a-zA-Z\s]+$/, 'Name must contain only letters and spaces'),
   age: z.number().int().min(3).max(12, 'Age must be between 3 and 12'),
   favoriteAnimal: z.string().min(1).max(30),
   favoriteColor: z.string().min(1).max(20),
   bestFriend: z.string().max(50).optional(),
   currentInterest: z.string().max(50).optional(),
+  createdAt: z.string().optional(),
 });
 
 // Story Generation Request Schema
@@ -20,7 +21,7 @@ export const generateStoriesRequestSchema = z.object({
 
 // Story Content Request Schema
 export const generateStoryContentRequestSchema = z.object({
-  storyId: z.string().uuid(),
+  storyId: z.union([z.string().uuid(), z.string().min(1)]),
   profile: childProfileSchema,
   choices: z.record(z.string(), z.string()).optional(),
 });

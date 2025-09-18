@@ -8,24 +8,24 @@ export interface AIModel {
   isFree: boolean;
 }
 
-// Available AI models (OpenRouter)
+// Available AI models (OpenRouter) - Most cost-effective paid models
 export const AI_MODELS: Record<string, AIModel> = {
   PRIMARY: {
-    id: 'arli-ai/qwq-32b-rp-r1',
-    name: 'ArliAI QwQ 32B RpR v1',
-    costPerToken: 0,
-    isFree: true,
+    id: 'mistralai/mistral-small-3.2-24b-instruct',
+    name: 'Mistral Small 3.2 24B Instruct',
+    costPerToken: 0.000000075, // $0.075 per 1M tokens - Most cost-effective
+    isFree: false,
   },
   SECONDARY: {
-    id: 'thedrummer/rocinante-12b',
-    name: 'TheDrummer/Rocinante-12B',
-    costPerToken: 0.0000005,
+    id: 'openai/gpt-4o-mini',
+    name: 'OpenAI GPT-4o Mini',
+    costPerToken: 0.00000015, // $0.15 per 1M tokens - High quality, low cost
     isFree: false,
   },
   TERTIARY: {
-    id: 'mistralai/mistral-nemo-12b-instruct',
-    name: 'Mistral Nemo 12B Celeste',
-    costPerToken: 0.0000012,
+    id: 'anthropic/claude-3-haiku',
+    name: 'Anthropic Claude 3 Haiku',
+    costPerToken: 0.00000025, // $0.25 per 1M tokens - Reliable fallback
     isFree: false,
   },
 };
@@ -54,7 +54,7 @@ export class OpenRouterClient {
     const { maxTokens = 1000, temperature = 0.7, fallbackToPaid = true } = options;
 
     try {
-      // Try primary model first
+      // Try primary model first (most cost-effective)
       return await this.tryModel(AI_MODELS.PRIMARY!, prompt, maxTokens, temperature);
     } catch (error) {
       console.warn(`Primary model failed: ${error}`);
@@ -63,13 +63,13 @@ export class OpenRouterClient {
         throw error;
       }
 
-      // Try secondary model
+      // Try secondary model (higher quality, slightly more expensive)
       try {
         return await this.tryModel(AI_MODELS.SECONDARY!, prompt, maxTokens, temperature);
       } catch (secondaryError) {
         console.warn(`Secondary model failed: ${secondaryError}`);
 
-        // Try tertiary model
+        // Try tertiary model (most reliable fallback)
         try {
           return await this.tryModel(AI_MODELS.TERTIARY!, prompt, maxTokens, temperature);
         } catch (tertiaryError) {

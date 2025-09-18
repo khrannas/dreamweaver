@@ -22,14 +22,15 @@ Requirements:
 - Age-appropriate language and themes
 - End with calming, sleep-positive imagery
 
-Generate ${count} story options, each with:
-- Title (engaging for child)
-- Brief description (2-3 sentences)
-- Estimated duration (5-15 minutes)
-- Energy level (high, medium, calming)
-- Content tags (adventure, friendship, educational, etc.)
+Create a story idea for ${profile.name}. Return in this exact format:
 
-Story Options:`;
+TITLE: [engaging story title]
+DESCRIPTION: [detailed 2-3 sentence description, at least 100 words]
+DURATION: [8-12]
+ENERGY: [high|medium|calming]
+TAGS: [tag1,tag2,tag3]
+
+Return ONLY these 5 lines:`;
   }
 
   /**
@@ -59,25 +60,41 @@ Child Profile:
 ${profile.bestFriend ? `- Best Friend: ${profile.bestFriend}` : ''}
 ${profile.currentInterest ? `- Current Interest: ${profile.currentInterest}` : ''}${choiceInstructions}
 
-Story Structure Requirements:
-PHASE 1 - ENGAGEMENT (40% of story): Exciting opening, introduce child as hero
-PHASE 2 - TRANSITION (30% of story): Build adventure, include first choice point
-PHASE 3 - WIND-DOWN (30% of story): Shift to calming, peaceful resolution
+STORY REQUIREMENTS:
+- Write in engaging, narrative style suitable for bedtime reading
+- Include **bold text** for emphasis and sound effects (*italics* for thoughts)
+- Use age-appropriate vocabulary for ages 3-8
+- Keep total length 300-600 words (8-12 minutes reading)
+- Include exactly 2 meaningful choice points that affect the story
 
-Choice Points: Include exactly 2 choice points that genuinely affect the story outcome.
+STORY STRUCTURE:
+**Phase 1 - Engagement (40% of story):** Exciting opening that draws child in
+**Phase 2 - Transition (30% of story):** Build adventure, include choice points
+**Phase 3 - Wind-down (30% of story):** Shift to calming, peaceful resolution
 
-Child Integration:
-- ${profile.name} is the protagonist throughout
-- Incorporate ${profile.favoriteAnimal}, ${profile.favoriteColor}${profile.bestFriend ? `, ${profile.bestFriend}` : ''}${profile.currentInterest ? `, ${profile.currentInterest}` : ''} naturally
-- Age-appropriate vocabulary (ages 3-8)
+CHILD INTEGRATION:
+- ${profile.name} is the main character throughout
+- Naturally incorporate: ${profile.favoriteAnimal}, ${profile.favoriteColor}${profile.bestFriend ? `, ${profile.bestFriend}` : ''}${profile.currentInterest ? `, ${profile.currentInterest}` : ''}
+- Make the story feel personal and magical
 
-Safety Requirements:
+SAFETY REQUIREMENTS:
 - No scary content, violence, or frightening themes
-- Positive, uplifting message
-- Promote kindness, friendship, and family values
-- End with sleep-positive, comforting conclusion
+- Positive, uplifting message about kindness and friendship
+- End with comforting, sleep-positive conclusion
 
-Generate the complete story with embedded choice points.`;
+CHOICE POINTS FORMAT:
+Include exactly 2 choice points in this format:
+**Choice Point 1:** [Situation description]
+- Option A: [First choice]
+- Option B: [Second choice]
+
+**Choice Point 2:** [Situation description]
+- Option A: [First choice]
+- Option B: [Second choice]
+
+IMPORTANT: Respond ONLY with the complete story content. No metadata, explanations, or improvement notes. Just the story ready for reading to a child.
+
+Complete Story:`;
   }
 
   /**
@@ -113,12 +130,7 @@ ${issues.map(issue => `- ${issue}`).join('\n')}
 Original Story:
 ${content}
 
-Please provide an improved version that:
-1. Addresses all the identified issues
-2. Maintains the story's core plot and characters
-3. Keeps age-appropriate language
-4. Preserves the sleep-optimized structure
-5. Includes choice points for interactivity
+IMPORTANT: Respond ONLY with the improved story content. Do not include any explanations, metadata, or notes about the improvements. Just provide the complete, improved story text ready for reading to a child.
 
 Improved Story:`;
   }

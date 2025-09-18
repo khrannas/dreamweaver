@@ -39,10 +39,10 @@ export class HealthController {
   static async detailedHealthCheck(_req: Request, res: Response): Promise<void> {
     try {
       const checks = {
-        database: await this.checkDatabaseHealth(),
-        aiService: await this.checkAIServiceHealth(),
-        memory: this.checkMemoryHealth(),
-        disk: this.checkDiskHealth(),
+        database: await HealthController.checkDatabaseHealth(),
+        aiService: await HealthController.checkAIServiceHealth(),
+        memory: HealthController.checkMemoryHealth(),
+        disk: HealthController.checkDiskHealth(),
       };
 
       const allHealthy = Object.values(checks).every(check => check.status === 'healthy');
@@ -51,7 +51,7 @@ export class HealthController {
       const healthData = {
         status,
         timestamp: new Date().toISOString(),
-        environment: environment.NODE_ENV,
+        environment: process.env.NODE_ENV || 'development',
         version: '1.0.0',
         uptime: process.uptime(),
         checks,
@@ -59,19 +59,13 @@ export class HealthController {
 
       const statusCode = allHealthy ? 200 : 503; // Service Unavailable if degraded
 
-      logger.info('Detailed health check completed', {
-        status,
-        checksCount: Object.keys(checks).length,
-        allHealthy,
-      });
-
       res.status(statusCode).json(healthData);
-    } catch (error) {
-      logger.error('Detailed health check failed', { error });
+    } catch (error: any) {
       res.status(500).json({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
         error: 'Detailed health check failed',
+        details: error?.message || error?.toString() || 'Unknown error',
       });
     }
   }
@@ -79,7 +73,7 @@ export class HealthController {
   /**
    * Check database health (no actual database, so always healthy)
    */
-  private static async checkDatabaseHealth(): Promise<{ status: string; message: string }> {
+  public static async checkDatabaseHealth(): Promise<{ status: string; message: string }> {
     // Since we're using local storage only (PRD requirement), database is always healthy
     return {
       status: 'healthy',
@@ -90,7 +84,7 @@ export class HealthController {
   /**
    * Check AI service health
    */
-  private static async checkAIServiceHealth(): Promise<{ status: string; message: string }> {
+  public static async checkAIServiceHealth(): Promise<{ status: string; message: string }> {
     try {
       // Simple AI service availability check
       // In a real implementation, you might make a test API call
@@ -109,7 +103,7 @@ export class HealthController {
   /**
    * Check memory health
    */
-  private static checkMemoryHealth(): { status: string; message: string } {
+  public static checkMemoryHealth(): { status: string; message: string } {
     const memUsage = process.memoryUsage();
     const memUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
 
@@ -129,7 +123,7 @@ export class HealthController {
   /**
    * Check disk health
    */
-  private static checkDiskHealth(): { status: string; message: string } {
+  public static checkDiskHealth(): { status: string; message: string } {
     try {
       // Basic disk space check (simplified)
       return {
