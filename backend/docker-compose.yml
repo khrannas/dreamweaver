@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  storymagic-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - BACKEND_URL=http://localhost:3001
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - storymagic-network
+
+  # Optional: Add a database service if needed in the future
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: storymagic
+  #     POSTGRES_USER: storymagic
+  #     POSTGRES_PASSWORD: storymagic_password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - storymagic-network
+
+networks:
+  storymagic-network:
+    driver: bridge
+
+# volumes:
+#   postgres_data:
