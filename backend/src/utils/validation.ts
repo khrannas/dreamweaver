@@ -88,7 +88,7 @@ export function validateGenerateStoryContentRequest(request: unknown): Validatio
 }
 
 // Age-appropriate content validation
-export function validateContentForAge(content: string, age: number): ValidationResult {
+export function validateContentForAge(content: string, _age: number): ValidationResult {
   const errors: string[] = [];
 
   // Check for inappropriate words (basic filtering)
@@ -104,18 +104,7 @@ export function validateContentForAge(content: string, age: number): ValidationR
     errors.push(`Content contains potentially inappropriate words: ${foundWords.join(', ')}`);
   }
 
-  // Check content length appropriateness
-  const wordCount = content.split(/\s+/).length;
-  const minWords = age * 20; // Rough estimate: younger kids need shorter content
-  const maxWords = age * 80;
-
-  if (wordCount < minWords) {
-    errors.push(`Content too short for age ${age} (${wordCount} words, minimum ${minWords})`);
-  }
-
-  if (wordCount > maxWords) {
-    errors.push(`Content too long for age ${age} (${wordCount} words, maximum ${maxWords})`);
-  }
+  // Removed age-based content length validation - now only checks for inappropriate content
 
   return {
     isValid: errors.length === 0,

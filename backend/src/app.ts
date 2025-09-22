@@ -5,6 +5,7 @@ import { corsMiddleware } from './middleware/cors.js';
 import { generalRateLimit } from './middleware/rateLimit.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { validateEnvironment } from './config/environment.js';
+import { initializeDatabase } from './config/database.js';
 import { logger } from './utils/logger.js';
 
 // Import controllers
@@ -14,6 +15,9 @@ import { storyGenerationRateLimit, storyContentRateLimit } from './middleware/ra
 
 // Validate environment on startup
 validateEnvironment();
+
+// Initialize database
+initializeDatabase();
 
 // Create Express application
 const app = express();
@@ -84,7 +88,7 @@ app.use('/api', generalRateLimit);
 
 // Health check endpoints (no rate limiting)
 app.get('/health', HealthController.healthCheck);
-app.get('/api/health', HealthController.detailedHealthCheck);
+app.get('/api/health', HealthController.healthCheck);
 
 // API Routes
 const apiRouter = express.Router();
@@ -92,7 +96,23 @@ const apiRouter = express.Router();
 // Story generation routes
 apiRouter.post('/stories/generate', storyGenerationRateLimit, StoryController.generateStories);
 apiRouter.post('/stories/:storyId/content', storyContentRateLimit, StoryController.generateStoryContent);
+apiRouter.get('/stories/:storyId/next', StoryController.getNextStorySegment);
+apiRouter.post('/stories/:storyId/continue', storyContentRateLimit, StoryController.continueStoryWithChoice);
 apiRouter.get('/stories/queue', StoryController.getStoryQueue);
+
+// Saved story management routes
+apiRouter.get('/stories/saved', StoryController.getSavedStories);
+apiRouter.get('/stories/saved/:storyId', StoryController.getSavedStory);
+apiRouter.delete('/stories/saved/:storyId', StoryController.deleteSavedStory);
+
+// Child profile routes
+apiRouter.post('/profiles', StoryController.saveChildProfile);
+apiRouter.get('/profiles', StoryController.getChildProfiles);
+apiRouter.get('/profiles/:profileId', StoryController.getChildProfile);
+
+// User preferences routes
+apiRouter.get('/preferences', StoryController.getUserPreferences);
+apiRouter.put('/preferences', StoryController.saveUserPreferences);
 
 // Content safety routes
 apiRouter.post('/content/validate', StoryController.validateContent);

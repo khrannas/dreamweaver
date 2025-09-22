@@ -1,36 +1,14 @@
 import { Request, Response } from 'express';
-import { environment } from '../config/environment.js';
-import { logger } from '../utils/logger.js';
 
 export class HealthController {
   /**
-   * Basic health check endpoint
+   * Basic health check endpoint - simply indicates server is up
    */
   static async healthCheck(_req: Request, res: Response): Promise<void> {
-    try {
-      const healthData = {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        environment: environment.NODE_ENV,
-        version: '1.0.0',
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-      };
-
-      logger.debug('Health check requested', {
-        uptime: healthData.uptime,
-        memoryUsed: healthData.memory.heapUsed,
-      });
-
-      res.status(200).json(healthData);
-    } catch (error) {
-      logger.error('Health check failed', { error });
-      res.status(500).json({
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        error: 'Health check failed',
-      });
-    }
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**

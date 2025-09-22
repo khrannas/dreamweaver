@@ -7,19 +7,20 @@ import {
 } from '../types/index.js';
 import { PromptBuilder } from './promptBuilder.js';
 import { ContentSafetyService } from './contentSafetyService.js';
+import { DatabaseService, SavedStorySegment } from './databaseService.js';
 import { openRouterClient } from '../config/openai.js';
 import { logger } from '../utils/logger.js';
 
 export class StoryGenerationService {
   /**
-   * Generate 3 unique story options for a child profile
+   * Generate 3 unique story options for a child profile with enhanced prompts
    */
   static async generateStoryOptions(
     profile: ChildProfile,
     count: number = 3
   ): Promise<GenerateStoriesResponse> {
     try {
-      logger.info('Generating story options', { profile: profile.name, count });
+      logger.info('Generating story options with enhanced prompts', { profile: profile.name, count });
 
       const stories: StoryOption[] = [];
 
@@ -59,9 +60,17 @@ export class StoryGenerationService {
         generatedAt: new Date().toISOString(),
       };
 
-      logger.info('Story options generated successfully', {
+      logger.info('Story options generated successfully with enhanced prompts', {
         storyCount: validatedStories.length,
-        requestedCount: count
+        requestedCount: count,
+        profileDataUsed: {
+          name: profile.name,
+          age: profile.age,
+          favoriteAnimal: profile.favoriteAnimal,
+          favoriteColor: profile.favoriteColor,
+          bestFriend: profile.bestFriend,
+          currentInterest: profile.currentInterest
+        }
       });
 
       return response;
@@ -72,7 +81,7 @@ export class StoryGenerationService {
   }
 
   /**
-   * Generate full story content with choice points
+   * Generate full story content with choice points and save to database
    */
   static async generateStoryContent(
     storyId: string,
@@ -84,7 +93,8 @@ export class StoryGenerationService {
       logger.info('Generating full story content', {
         storyId,
         profile: profile.name,
-        title: storyOption.title
+        title: storyOption.title,
+        hasChoices: !!choices
       });
 
       const prompt = PromptBuilder.buildFullStoryPrompt(profile, storyOption, choices);
@@ -95,6 +105,9 @@ export class StoryGenerationService {
       });
 
       const storyContent = this.parseFullStoryResponse(aiResponse, storyOption);
+
+      // Store original choice points before safety check
+      const originalChoicePoints = [...storyContent.choicePoints];
 
       // Safety check the generated content
       const safetyResult = await ContentSafetyService.checkContentSafety(
@@ -116,18 +129,36 @@ export class StoryGenerationService {
 
         if (improvedContent) {
           storyContent.content = improvedContent;
+          // Keep the original choice points since improvement shouldn't affect choice structure
+          storyContent.choicePoints = originalChoicePoints;
+          logger.info('Story content improved, preserving original choice points', {
+            originalWordCount: storyContent.content.split(/\s+/).length,
+            improvedWordCount: improvedContent.split(/\s+/).length,
+            choicePointsPreserved: storyContent.choicePoints.length
+          });
+        } else {
+          logger.warn('Story content improvement failed, using original content');
         }
       }
+
+      // Validate story content before saving
+      if (!storyContent.content || storyContent.content.trim().length === 0) {
+        throw new Error('Story content is empty after generation and improvement');
+      }
+
+      // Save the story to database with all segments and choices
+      await this.saveCompleteStory(storyId, profile, storyOption, storyContent, choices);
 
       const response: GenerateStoryContentResponse = {
         story: storyContent,
         generatedAt: new Date().toISOString(),
       };
 
-      logger.info('Full story content generated successfully', {
+      logger.info('Full story content generated and saved successfully', {
         storyId,
         wordCount: storyContent.content.split(/\s+/).length,
-        choicePoints: storyContent.choicePoints.length
+        choicePoints: storyContent.choicePoints.length,
+        savedToDatabase: true
       });
 
       return response;
@@ -138,70 +169,96 @@ export class StoryGenerationService {
   }
 
   /**
-   * Parse AI response for story options (simple text format)
+   * Parse AI response for multiple story options with variance
    */
   private static parseStoryOptionsResponse(response: string, count: number): StoryOption[] {
     try {
-      // Clean the response - remove markdown code blocks
+      // Clean the response
       let cleanResponse = response.trim();
       cleanResponse = cleanResponse.replace(/^```.*?\n?/g, '').replace(/\n?```$/g, '');
 
-      // Parse the simple format: TITLE: ..., DESCRIPTION: ..., etc.
-      const lines = cleanResponse.split('\n').map(line => line.trim()).filter(line => line);
+      const stories: StoryOption[] = [];
+      const storyBlocks = cleanResponse.split(/STORY \d+:/i).filter(block => block.trim());
 
-      let title = '';
-      let description = '';
-      let duration = 10;
-      let energyLevel: 'high' | 'medium' | 'calming' = 'medium';
-      let contentTags: string[] = ['adventure'];
+      for (let i = 0; i < Math.min(storyBlocks.length, count); i++) {
+        const block = storyBlocks[i];
+        if (!block) continue;
 
-      for (const line of lines) {
-        if (line.startsWith('TITLE:')) {
-          title = line.substring(6).trim();
-        } else if (line.startsWith('DESCRIPTION:')) {
-          description = line.substring(12).trim();
-        } else if (line.startsWith('DURATION:')) {
-          const durStr = line.substring(9).trim();
-          const durNum = parseInt(durStr, 10);
-          if (!isNaN(durNum) && durNum >= 5 && durNum <= 15) {
-            duration = durNum;
+        const lines = block.split('\n').map(line => line.trim()).filter(line => line);
+
+        let title = '';
+        let description = '';
+        let duration = 10;
+        let energyLevel: 'high' | 'medium' | 'calming' = 'medium';
+        let contentTags: string[] = ['adventure'];
+
+        for (const line of lines) {
+          if (line.startsWith('TITLE:')) {
+            title = line.substring(6).trim();
+          } else if (line.startsWith('DESCRIPTION:')) {
+            description = line.substring(12).trim();
+            // Clean up any duration information that might have been included in description
+            description = description.replace(/\s*DURATION:\s*\d+\s*$/i, '').trim();
+          } else if (line.startsWith('DURATION:')) {
+            const durStr = line.substring(9).trim();
+            const durNum = parseInt(durStr, 10);
+            if (!isNaN(durNum) && durNum >= 5 && durNum <= 15) {
+              duration = durNum;
+            }
+          } else if (line.startsWith('ENERGY:')) {
+            const energy = line.substring(7).trim().toLowerCase();
+            if (['high', 'medium', 'calming'].includes(energy)) {
+              energyLevel = energy as 'high' | 'medium' | 'calming';
+            }
+          } else if (line.startsWith('TAGS:')) {
+            const tagsStr = line.substring(5).trim();
+            contentTags = tagsStr.split(',').map(tag => tag.trim().toLowerCase()).filter(tag => tag);
+            if (contentTags.length === 0) {
+              contentTags = ['adventure'];
+            }
           }
-        } else if (line.startsWith('ENERGY:')) {
-          const energy = line.substring(7).trim().toLowerCase();
-          if (['high', 'medium', 'calming'].includes(energy)) {
-            energyLevel = energy as 'high' | 'medium' | 'calming';
-          }
-        } else if (line.startsWith('TAGS:')) {
-          const tagsStr = line.substring(5).trim();
-          contentTags = tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag);
-          if (contentTags.length === 0) {
-            contentTags = ['adventure'];
-          }
+        }
+
+        // Validate required fields
+        if (title && description && description.length > 50) {
+          const story: StoryOption = {
+            id: `story_${i + 1}_${Date.now()}`,
+            title,
+            description,
+            estimatedDuration: duration,
+            energyLevel,
+            contentTags,
+            preview: description.substring(0, 100) + (description.length > 100 ? '...' : '')
+          };
+          stories.push(story);
         }
       }
 
-      // Validate that we have the required fields
-      if (title && description && description.length > 50) {
-        const story: StoryOption = {
-          id: `story_1_${Date.now()}`,
-          title,
-          description,
-          estimatedDuration: duration,
-          energyLevel,
-          contentTags,
-          preview: description.substring(0, 100) + (description.length > 100 ? '...' : '')
-        };
-
-        console.log('Successfully parsed story from text format');
-        return [story];
+      if (stories.length === 0) {
+        logger.warn('No stories parsed from AI response, falling back to legacy parsing');
+        return this.parseStoryOptionsResponseFallback(response, count);
       }
 
-      // If parsing fails, fall back to text parsing
-      console.warn('Failed to parse text format, falling back to legacy parsing');
-      return this.parseStoryOptionsResponseFallback(response, count);
+      // Ensure we have the requested number of stories
+      while (stories.length < count && stories.length > 0) {
+        // Duplicate the last story with slight variations
+        const lastStory = stories[stories.length - 1];
+        if (lastStory) {
+          const newStory: StoryOption = {
+            ...lastStory,
+            id: `story_${stories.length + 1}_${Date.now()}`,
+            title: lastStory.title + ' Continued',
+            energyLevel: lastStory.energyLevel === 'high' ? 'medium' : lastStory.energyLevel === 'medium' ? 'calming' : 'high' as 'high' | 'medium' | 'calming'
+          };
+          stories.push(newStory);
+        }
+      }
+
+      logger.info(`Successfully parsed ${stories.length} stories with variance`);
+      return stories;
 
     } catch (error) {
-      console.warn('Text parsing failed, falling back to legacy parsing');
+      logger.warn('Multi-story parsing failed, falling back to legacy parsing', { error });
       return this.parseStoryOptionsResponseFallback(response, count);
     }
   }
@@ -282,14 +339,38 @@ export class StoryGenerationService {
    * Parse AI response for full story content
    */
   private static parseFullStoryResponse(response: string, storyOption: StoryOption): StoryContent {
-    // Extract choice points
-    const choicePoints = this.extractChoicePoints(response);
+    // For pre-generated branching, we need to generate the full story with all branches
+    // Extract choice points and create segments for all possible paths
+
+    const allChoicePoints = this.extractChoicePoints(response);
+    console.log('All extracted choice points:', allChoicePoints.length);
+
+    // Clean the main content (remove choice point text)
+    let cleanedContent = response.trim();
+
+    if (allChoicePoints.length > 0) {
+      // Find the first choice point and extract content up to it
+      const choicePointIndex = response.indexOf('Choice Point 1:');
+      if (choicePointIndex !== -1) {
+        cleanedContent = response.substring(0, choicePointIndex).trim();
+      }
+    }
+
+    // Remove any choice-related text
+    cleanedContent = cleanedContent.replace(/\[[^\]]+\]\s+and\s+[^,]*,?\s+chose\s+Option\s+[AB]\s*\([^)]*\),\s*and\s+off\s+they\s+went!/gi, '');
+    cleanedContent = cleanedContent.replace(/chose\s+Option\s+[AB]\s*\([^)]*\)/gi, '');
+
+    // Clean up extra whitespace
+    cleanedContent = cleanedContent.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+
+    console.log('Final content preview:', cleanedContent.substring(0, 100) + '...');
+    console.log('Final choice points:', allChoicePoints.length);
 
     return {
       id: storyOption.id,
       title: storyOption.title,
-      content: response.trim(),
-      choicePoints,
+      content: cleanedContent,
+      choicePoints: allChoicePoints, // Include all choice points for branching
       duration: storyOption.estimatedDuration,
       energyLevel: storyOption.energyLevel,
       contentTags: storyOption.contentTags,
@@ -297,29 +378,58 @@ export class StoryGenerationService {
   }
 
   /**
+   * Helper method to escape special regex characters
+   */
+  private static escapeRegex(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
    * Extract choice points from story content
    */
   private static extractChoicePoints(content: string): any[] {
     const choicePoints = [];
-    const choiceRegex = /Choice Point \d+:?\s*(.*?)\n(?:Option A:\s*(.*?)\nOption B:\s*(.*?)(?:\n|$))/gis;
 
-    let match;
-    while ((match = choiceRegex.exec(content)) !== null) {
-      const [_, situation, optionA, optionB] = match;
+    // Split content by "Choice Point" to find all choice sections
+    const choiceSections = content.split(/Choice Point \d+:/);
+
+    for (let i = 1; i < choiceSections.length; i++) {
+      const section = choiceSections[i];
+      if (!section) continue;
+
+      // Extract the situation (text before Option A)
+      // Look for text up to the first "Option A:" or just take the beginning of the section
+      const optionAIndex = section.indexOf('Option A:');
+      const situation = optionAIndex !== -1
+        ? section.substring(0, optionAIndex).trim()
+        : (section.split('\n')[0] || '').trim();
+
+      // Extract Option A
+      const optionAMatch = section.match(/Option A:\s*([^\n]+)/);
+      const optionA = optionAMatch && optionAMatch[1] ? optionAMatch[1].trim() : '';
+
+      // Extract Option B
+      const optionBMatch = section.match(/Option B:\s*([^\n]+)/);
+      const optionB = optionBMatch && optionBMatch[1] ? optionBMatch[1].trim() : '';
+
+      console.log(`Choice point ${i} extraction:`, { situation, optionA, optionB });
 
       if (situation && optionA && optionB) {
+        // Use a highly unique ID to guarantee uniqueness across all stories
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}`;
+        const choiceId = `choice_${uniqueId}`;
         choicePoints.push({
-          id: `choice_${choicePoints.length + 1}`,
-          text: situation.trim(),
+          id: choiceId,
+          text: situation,
           choices: [
             {
               id: 'A',
-              text: optionA.trim(),
+              text: optionA,
               outcome: 'This choice leads to an exciting adventure!',
             },
             {
               id: 'B',
-              text: optionB.trim(),
+              text: optionB,
               outcome: 'This choice brings a peaceful resolution!',
             },
           ],
@@ -327,6 +437,7 @@ export class StoryGenerationService {
       }
     }
 
+    console.log('Extracted choice points:', choicePoints.length);
     return choicePoints;
   }
 
@@ -437,5 +548,109 @@ export class StoryGenerationService {
       logger.warn('Failed to improve story content', { error });
       return null;
     }
+  }
+
+  /**
+   * Parse AI response for story continuation
+   */
+  static parseContinuationResponse(response: string): { content: string; choicePoints: any[] } {
+    try {
+      // Clean the response
+      let cleanResponse = response.trim();
+      cleanResponse = cleanResponse.replace(/^```.*?\n?/g, '').replace(/\n?```$/g, '');
+
+      // Extract any choice points from the continuation
+      const choicePoints = this.extractChoicePoints(cleanResponse);
+
+      // Remove choice point text from the main content (similar to initial parsing)
+      if (choicePoints.length > 0) {
+        const firstChoicePoint = choicePoints[0];
+        const choiceRegex = new RegExp(`Choice Point \\d+:?\\s*${this.escapeRegex(firstChoicePoint.text)}\\n(?:Option A:\\s*${this.escapeRegex(firstChoicePoint.choices[0].text)}\\nOption B:\\s*${this.escapeRegex(firstChoicePoint.choices[1].text)}(?:\\n|$))`, 'gi');
+        const choiceMatch = choiceRegex.exec(cleanResponse);
+
+        if (choiceMatch) {
+          cleanResponse = cleanResponse.substring(0, choiceMatch.index).trim();
+        }
+      }
+
+      return {
+        content: cleanResponse.trim(),
+        choicePoints
+      };
+    } catch (error) {
+      logger.warn('Failed to parse continuation response', { error });
+      return {
+        content: response.trim(),
+        choicePoints: []
+      };
+    }
+  }
+
+  /**
+   * Save story with initial segment and choice points to database
+   */
+  private static async saveCompleteStory(
+    storyId: string,
+    profile: ChildProfile,
+    storyOption: StoryOption,
+    storyContent: StoryContent,
+    _choices?: Record<string, string>
+  ): Promise<void> {
+    try {
+      // Save child profile first
+      DatabaseService.saveChildProfile(profile);
+
+      // Create initial segment with choice points
+      const initialSegment: SavedStorySegment = {
+        id: `${storyId}_segment_1`,
+        storyId,
+        content: storyContent.content,
+        segmentOrder: 0,
+        hasChoices: storyContent.choicePoints && storyContent.choicePoints.length > 0,
+        createdAt: new Date().toISOString(),
+        choicePoints: storyContent.choicePoints || []
+      };
+
+      // Save to database
+      const savedStoryId = DatabaseService.saveStory(storyOption, profile.id, storyContent, [initialSegment]);
+
+      logger.info('Story with initial segment saved to database', {
+        storyId: savedStoryId,
+        hasChoices: initialSegment.hasChoices,
+        choicePointsCount: storyContent.choicePoints?.length || 0
+      });
+
+    } catch (error) {
+      logger.error('Failed to save story to database', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        storyId
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Generate a continuation for a specific choice
+   */
+  static async generateChoiceContinuation(
+    profile: ChildProfile,
+    story: { id: string; title: string },
+    currentSegment: SavedStorySegment,
+    selectedChoice: { id: string; text: string; outcome: string }
+  ): Promise<{ content: string; choicePoints: any[] }> {
+    const continuationPrompt = PromptBuilder.buildStoryContinuationPrompt(
+      profile,
+      story as any,
+      currentSegment as any,
+      selectedChoice
+    );
+
+    const aiResponse = await openRouterClient.generateCompletion(continuationPrompt, {
+      maxTokens: 800, // Shorter for branches
+      temperature: 0.7,
+    });
+
+    return this.parseContinuationResponse(aiResponse);
   }
 }

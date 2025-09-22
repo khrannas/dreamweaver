@@ -92,3 +92,32 @@ export interface StoryQueueItem {
   priority: number;
   expiresAt: Date;
 }
+
+// Saved Story Types (for database operations)
+export interface SavedStory {
+  id: string;
+  userId: string;
+  childProfileId: string;
+  title: string;
+  description: string;
+  estimatedDuration: number;
+  energyLevel: 'high' | 'medium' | 'calming';
+  contentTags: string[];
+  preview: string;
+  createdAt: string;
+  updatedAt: string;
+  childProfile?: ChildProfile;
+}
+
+export interface SavedStorySegment {
+  id: string;
+  storyId: string;
+  parentSegmentId?: string;
+  content: string;
+  choiceText?: string;
+  choiceId?: string;
+  segmentOrder: number;
+  hasChoices: boolean;
+  createdAt: string;
+  choicePoints?: ChoicePoint[];
+}
