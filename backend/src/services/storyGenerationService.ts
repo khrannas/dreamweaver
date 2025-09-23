@@ -24,10 +24,10 @@ export class StoryGenerationService {
 
       const stories: StoryOption[] = [];
 
-      // Generate stories one by one to ensure we get the requested count
+      // Generate stories one by one with specific constraints for each
       for (let i = 0; i < count; i++) {
         try {
-          const prompt = PromptBuilder.buildStoryOptionsPrompt(profile, 1);
+          const prompt = PromptBuilder.buildSingleStoryPrompt(profile, i);
 
           const aiResponse = await openRouterClient.generateCompletion(prompt, {
             maxTokens: 1200, // More tokens for detailed content
@@ -684,6 +684,15 @@ export class StoryGenerationService {
               story2.energyLevel = differentEnergy as any;
             }
           }
+
+          // Check for similar opening phrases
+          const opening1 = story1.description.split('.')[0]?.toLowerCase() || '';
+          const opening2 = story2.description.split('.')[0]?.toLowerCase() || '';
+
+          if (this.hasSimilarOpening(opening1, opening2)) {
+            // Fix the second story's opening
+            story2.description = this.fixRepetitiveOpening(story2.description, j);
+          }
         }
       }
     }
@@ -719,5 +728,63 @@ export class StoryGenerationService {
     });
 
     return modifiedWords.join(' ');
+  }
+
+  /**
+   * Check if two opening sentences are too similar
+   */
+  private static hasSimilarOpening(opening1: string, opening2: string): boolean {
+    // Check for common problematic patterns
+    const problematicPatterns = [
+      'suddenly, a',
+      'suddenly a',
+      'one sunny morning',
+      'deep in the heart',
+      'in the quiet',
+      'the day started'
+    ];
+
+    // Check if both openings start with the same problematic pattern
+    for (const pattern of problematicPatterns) {
+      if (opening1.startsWith(pattern) && opening2.startsWith(pattern)) {
+        return true;
+      }
+    }
+
+    // Check for high word overlap in first 10 words
+    const words1 = opening1.split(/\s+/).slice(0, 10);
+    const words2 = opening2.split(/\s+/).slice(0, 10);
+    const commonWords = words1.filter(word => words2.includes(word) && word.length > 3);
+
+    return commonWords.length >= 3; // If 3+ words overlap, consider it similar
+  }
+
+  /**
+   * Fix repetitive opening by replacing it with a different pattern
+   */
+  private static fixRepetitiveOpening(description: string, storyIndex: number): string {
+    const openingPatterns = [
+      '[CHILD_NAME] had always dreamed of',
+      'In the quiet',
+      'The day started like any other, until',
+      'A mysterious',
+      'When [CHILD_NAME] discovered',
+      'In a world where',
+      'As [CHILD_NAME] explored',
+      'The moment [CHILD_NAME] found'
+    ];
+
+    // Get the first sentence
+    const sentences = description.split('.');
+    const firstSentence = sentences[0] || '';
+    const restOfDescription = sentences.slice(1).join('.').trim();
+
+    // Choose a different opening pattern based on story index
+    const newOpening = openingPatterns[storyIndex % openingPatterns.length];
+
+    // Replace the opening with the new pattern
+    const newFirstSentence = firstSentence.replace(/^[^a-zA-Z]*/, newOpening + ' ');
+
+    return newFirstSentence + (restOfDescription ? '. ' + restOfDescription : '');
   }
 }

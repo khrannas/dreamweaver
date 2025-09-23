@@ -82,12 +82,13 @@ TITLE DIVERSITY CONSTRAINTS:
 
 INTRODUCTION DIVERSITY CONSTRAINTS:
 - CRITICAL: Each story MUST start with a COMPLETELY DIFFERENT opening pattern
+- FORBIDDEN: Do NOT use "Suddenly" for multiple stories
 - FORBIDDEN: Do NOT use "Deep in the heart of..." for multiple stories
 - FORBIDDEN: Do NOT use "One sunny morning, [CHILD_NAME] and their best friend..." for multiple stories
 - ASSIGN these UNIQUE opening patterns (one per story):
-  * Story 1: "Suddenly, a [mysterious event] appeared..."
-  * Story 2: "[CHILD_NAME] had always dreamed of..."
-  * Story 3: "The day started like any other, until..."
+  * Story 1: "[CHILD_NAME] had always dreamed of [something magical]..."
+  * Story 2: "In the quiet [setting], [CHILD_NAME] discovered..."
+  * Story 3: "The day started like any other, until [CHILD_NAME] noticed..."
 - ALTERNATIVE patterns if needed:
   * "A mysterious [object] led [CHILD_NAME] to..."
   * "When [CHILD_NAME] discovered..."
@@ -101,21 +102,21 @@ Return EXACTLY ${count} story options in this STRICT format (one after another):
 
 STORY 1:
 TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[0]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[0]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "Suddenly, a [mysterious event] appeared..." - NO other opening pattern allowed]
+DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[0]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "[CHILD_NAME] had always dreamed of [something magical]..." - NO other opening pattern allowed, NO "Suddenly"]
 DURATION: [8-12]
 ENERGY: [${selectedEnergyLevels[0]}]
 TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
 
 STORY 2:
 TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[1]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[1]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "[CHILD_NAME] had always dreamed of..." - NO other opening pattern allowed]
+DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[1]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "In the quiet [setting], [CHILD_NAME] discovered..." - NO other opening pattern allowed, NO "Suddenly"]
 DURATION: [8-12]
 ENERGY: [${selectedEnergyLevels[1]}]
 TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
 
 STORY 3:
 TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[2]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[2]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "The day started like any other, until..." - NO other opening pattern allowed]
+DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[2]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "The day started like any other, until [CHILD_NAME] noticed..." - NO other opening pattern allowed, NO "Suddenly"]
 DURATION: [8-12]
 ENERGY: [${selectedEnergyLevels[2]}]
 TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
@@ -132,11 +133,90 @@ VALIDATION CHECKLIST (verify before submitting):
 ✓ Story 1 title does NOT contain words used in Stories 2&3 titles
 ✓ Story 2 title does NOT contain words used in Stories 1&3 titles
 ✓ Story 3 title does NOT contain words used in Stories 1&2 titles
-✓ Story 1 description starts with "Suddenly, a [event] appeared..."
-✓ Story 2 description starts with "[CHILD_NAME] had always dreamed of..."
-✓ Story 3 description starts with "The day started like any other, until..."
+✓ Story 1 description starts with "[CHILD_NAME] had always dreamed of [something magical]..."
+✓ Story 2 description starts with "In the quiet [setting], [CHILD_NAME] discovered..."
+✓ Story 3 description starts with "The day started like any other, until [CHILD_NAME] noticed..."
+✓ NO story uses "Suddenly" in the opening
 ✓ At least 2 different energy levels are used
 ✓ No repeated phrases or sentence structures across stories`;
+  }
+
+  /**
+   * Build prompt for generating a single story with specific constraints
+   */
+  static buildSingleStoryPrompt(profile: ChildProfile, storyIndex: number): string {
+    const energyLevels = ['energetic', 'peaceful', 'mystical', 'playful', 'cozy', 'adventurous', 'gentle', 'exciting'];
+    const themes = [
+      'adventure', 'friendship', 'imagination', 'nature', 'kindness', 'family',
+      'discovery', 'magic', 'animals', 'space', 'underwater', 'forest',
+      'problem-solving', 'teamwork', 'creativity', 'exploration', 'mystery'
+    ];
+    const titleStyles = [
+      'alliterative (e.g., "[CHILD_NAME] and the Amazing Adventure")',
+      'descriptive (e.g., "The Day [CHILD_NAME] Discovered Magic")',
+      'question-based (e.g., "What Happened When [CHILD_NAME] Found the Secret?")',
+      'action-oriented (e.g., "[CHILD_NAME] Saves the Day")',
+      'whimsical (e.g., "The Wonderful World of [CHILD_NAME]")'
+    ];
+    const descriptionStyles = [
+      'narrative (tell the story setup)',
+      'character-focused (emphasize [CHILD_NAME]\'s role)',
+      'setting-focused (describe the magical world)',
+      'problem-focused (present the challenge to solve)',
+      'mystery-focused (hint at secrets to discover)'
+    ];
+
+    // Assign specific elements based on story index
+    const energyLevel = energyLevels[storyIndex % energyLevels.length];
+    const theme = themes[storyIndex % themes.length];
+    const titleStyle = titleStyles[storyIndex % titleStyles.length];
+    const descriptionStyle = descriptionStyles[storyIndex % descriptionStyles.length];
+
+    // Define specific opening patterns for each story
+    const openingPatterns = [
+      "[CHILD_NAME] had always dreamed of [something magical]...",
+      "In the quiet [setting], [CHILD_NAME] discovered...",
+      "The day started like any other, until [CHILD_NAME] noticed..."
+    ];
+    const openingPattern = openingPatterns[storyIndex % openingPatterns.length];
+
+    return `You are StoryMagic, a children's bedtime story generator. Create ONE unique story option for a ${profile.age}-year-old child named [CHILD_NAME].
+
+IMPORTANT: Use [CHILD_NAME] as placeholder for the child's name in ALL story content. Never use the actual name.
+
+Child Profile (use ALL of this information in stories):
+- Age: ${profile.age}
+- Favorite Animal: ${profile.favoriteAnimal}
+- Favorite Color: ${profile.favoriteColor}
+${profile.bestFriend ? `- Best Friend: ${profile.bestFriend}` : ''}
+${profile.currentInterest ? `- Current Interest: ${profile.currentInterest}` : ''}
+
+STORY REQUIREMENTS:
+- Energy Level: ${energyLevel}
+- Theme: ${theme}
+- Title Style: ${titleStyle}
+- Description Style: ${descriptionStyle}
+- Opening Pattern: ${openingPattern}
+
+CRITICAL CONSTRAINTS:
+- The description MUST start with: "${openingPattern}"
+- Do NOT use "Suddenly" or "One sunny morning" or "Deep in the heart"
+- Create a unique title that doesn't repeat common words like "Race", "Garden", "Quest"
+- Stories should be 200-600 words (5-15 minutes reading)
+- Include 2-3 meaningful choice points for interactivity
+- Use sleep-optimized structure: Engagement → Transition → Wind-down
+- Age-appropriate language and themes
+- End with calming, sleep-positive imagery
+
+Return EXACTLY ONE story option in this STRICT format:
+
+TITLE: [unique, engaging title using [CHILD_NAME] with ${titleStyle}]
+DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${descriptionStyle} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "${openingPattern}"]
+DURATION: [8-12]
+ENERGY: [${energyLevel}]
+TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
+
+IMPORTANT: Each field MUST be on its own line. Do NOT include "DURATION:" or any field names in the DESCRIPTION. Return ONLY the story option, no additional text or explanations.`;
   }
 
   /**
