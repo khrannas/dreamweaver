@@ -350,7 +350,7 @@ export class StoryGenerationService {
 
     if (allChoicePoints.length > 0) {
       // Find the first choice point and extract content up to it
-      const choicePointIndex = response.indexOf('Choice Point 1:');
+      const choicePointIndex = response.search(/Choice Point \d+:/i);
       if (choicePointIndex !== -1) {
         cleanedContent = response.substring(0, choicePointIndex).trim();
       }
@@ -377,12 +377,6 @@ export class StoryGenerationService {
     };
   }
 
-  /**
-   * Helper method to escape special regex characters
-   */
-  private static escapeRegex(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
 
   /**
    * Extract choice points from story content
@@ -562,14 +556,12 @@ export class StoryGenerationService {
       // Extract any choice points from the continuation
       const choicePoints = this.extractChoicePoints(cleanResponse);
 
-      // Remove choice point text from the main content (similar to initial parsing)
+      // Remove choice point text from the main content
       if (choicePoints.length > 0) {
-        const firstChoicePoint = choicePoints[0];
-        const choiceRegex = new RegExp(`Choice Point \\d+:?\\s*${this.escapeRegex(firstChoicePoint.text)}\\n(?:Option A:\\s*${this.escapeRegex(firstChoicePoint.choices[0].text)}\\nOption B:\\s*${this.escapeRegex(firstChoicePoint.choices[1].text)}(?:\\n|$))`, 'gi');
-        const choiceMatch = choiceRegex.exec(cleanResponse);
-
-        if (choiceMatch) {
-          cleanResponse = cleanResponse.substring(0, choiceMatch.index).trim();
+        // Use a simpler approach - find the first "Choice Point" and remove everything from there
+        const choicePointIndex = cleanResponse.search(/Choice Point \d+:/i);
+        if (choicePointIndex !== -1) {
+          cleanResponse = cleanResponse.substring(0, choicePointIndex).trim();
         }
       }
 
@@ -612,7 +604,7 @@ export class StoryGenerationService {
       };
 
       // Save to database
-      const savedStoryId = DatabaseService.saveStory(storyOption, profile.id, storyContent, [initialSegment]);
+      const savedStoryId = DatabaseService.saveStory(storyOption, profile, storyContent, [initialSegment]);
 
       logger.info('Story with initial segment saved to database', {
         storyId: savedStoryId,

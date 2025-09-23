@@ -1,6 +1,7 @@
 import { getDatabase } from '../config/database.js';
 import { logger } from '../utils/logger.js';
 import { ChildProfile, StoryOption, StoryContent, ChoicePoint } from '../types/index.js';
+import { PlaceholderUtils } from '../utils/placeholderUtils.js';
 
 export interface SavedStory {
     id: string;
@@ -134,12 +135,15 @@ export class DatabaseService {
      */
     static saveStory(
         storyOption: StoryOption,
-        childProfileId: string,
+        profile: ChildProfile,
         _storyContent: StoryContent,
         segments: SavedStorySegment[]
     ): string {
         try {
             const db = this.db;
+
+            // Replace placeholders in story option with actual child data
+            const processedStoryOption = PlaceholderUtils.replaceStoryOptionPlaceholders(storyOption, profile);
 
             // Begin transaction
             const transaction = db.transaction(() => {
@@ -152,15 +156,15 @@ export class DatabaseService {
           `);
 
                     const storyResult = storyStmt.run(
-                        storyOption.id,
+                        processedStoryOption.id,
                         'default_user',
-                        childProfileId,
-                        storyOption.title,
-                        storyOption.description,
-                        storyOption.estimatedDuration,
-                        storyOption.energyLevel,
-                        JSON.stringify(storyOption.contentTags),
-                        storyOption.preview
+                        profile.id,
+                        processedStoryOption.title,
+                        processedStoryOption.description,
+                        processedStoryOption.estimatedDuration,
+                        processedStoryOption.energyLevel,
+                        JSON.stringify(processedStoryOption.contentTags),
+                        processedStoryOption.preview
                     );
 
                     console.log('Story inserted:', storyResult);
@@ -336,6 +340,75 @@ export class DatabaseService {
     }
 
     /**
+     * Get saved stories with pagination
+     */
+    static getSavedStoriesPaginated(page: number = 1, limit: number = 10): { stories: SavedStory[]; totalCount: number; hasMore: boolean } {
+        try {
+            const offset = (page - 1) * limit;
+
+            // Get total count
+            const countStmt = this.db.prepare(`
+        SELECT COUNT(*) as total
+        FROM stories s
+        WHERE s.user_id = ?
+      `);
+            const countResult = countStmt.get('default_user') as { total: number };
+            const totalCount = countResult.total;
+
+            // Get paginated stories
+            const stmt = this.db.prepare(`
+        SELECT
+          s.id, s.user_id, s.child_profile_id, s.title, s.description,
+          s.estimated_duration, s.energy_level, s.content_tags, s.preview,
+          s.created_at, s.updated_at,
+          cp.name as child_name, cp.age as child_age,
+          cp.favorite_animal, cp.favorite_color, cp.best_friend, cp.current_interest
+        FROM stories s
+        LEFT JOIN child_profiles cp ON s.child_profile_id = cp.id
+        WHERE s.user_id = ?
+        ORDER BY s.created_at DESC
+        LIMIT ? OFFSET ?
+      `);
+
+            const rows = stmt.all('default_user', limit, offset) as any[];
+            const stories = rows.map(row => ({
+                id: row.id,
+                userId: row.user_id,
+                childProfileId: row.child_profile_id,
+                title: row.title,
+                description: row.description,
+                estimatedDuration: row.estimated_duration,
+                energyLevel: row.energy_level,
+                contentTags: JSON.parse(row.content_tags),
+                preview: row.preview,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+                childProfile: {
+                    id: row.child_profile_id,
+                    name: row.child_name,
+                    age: row.child_age,
+                    favoriteAnimal: row.favorite_animal,
+                    favoriteColor: row.favorite_color,
+                    bestFriend: row.best_friend,
+                    currentInterest: row.current_interest,
+                    createdAt: row.created_at
+                }
+            }));
+
+            const hasMore = offset + stories.length < totalCount;
+
+            return {
+                stories,
+                totalCount,
+                hasMore
+            };
+        } catch (error) {
+            logger.error('Failed to get paginated saved stories', { error, page, limit });
+            throw error;
+        }
+    }
+
+    /**
      * Get a specific story by ID
      */
     static getStory(storyId: string): SavedStory | null {
@@ -471,6 +544,13 @@ export class DatabaseService {
           VALUES (?, ?, ?, ?)
         `);
 
+                // Insert choice options
+                const choiceOptionStmt = db.prepare(`
+          INSERT INTO choice_options
+          (id, choice_point_id, option_id, option_text, option_order)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+
                 segments.forEach((segment, segmentIndex) => {
                     console.log(`Inserting segment ${segmentIndex}:`, segment.id);
                     segmentStmt.run(
@@ -495,6 +575,21 @@ export class DatabaseService {
                                 choice.text,
                                 choiceIndex
                             );
+
+                            // Insert choice options for this choice point
+                            if (choice.choices && choice.choices.length > 0) {
+                                choice.choices.forEach((option, optionIndex) => {
+                                    const optionId = `${choice.id}_option_${option.id}`;
+                                    console.log(`Inserting choice option: id=${optionId}, choicePointId=${choice.id}, optionId=${option.id}`);
+                                    choiceOptionStmt.run(
+                                        optionId,
+                                        choice.id,
+                                        option.id,
+                                        option.text,
+                                        optionIndex
+                                    );
+                                });
+                            }
                         });
                     }
                 });

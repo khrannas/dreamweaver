@@ -102,6 +102,7 @@ apiRouter.get('/stories/queue', StoryController.getStoryQueue);
 
 // Saved story management routes
 apiRouter.get('/stories/saved', StoryController.getSavedStories);
+apiRouter.get('/stories/saved/paginated', StoryController.getSavedStoriesPaginated);
 apiRouter.get('/stories/saved/:storyId', StoryController.getSavedStory);
 apiRouter.delete('/stories/saved/:storyId', StoryController.deleteSavedStory);
 

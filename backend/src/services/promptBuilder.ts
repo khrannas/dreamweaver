@@ -189,7 +189,6 @@ CONTINUATION REQUIREMENTS:
 - Keep the same tone and style as the original story
 - Include [CHILD_NAME] as the main character throughout
 - Maintain age-appropriate content for ages 3-8
-- End this segment appropriately (can include another choice point or conclusion)
 - Keep length to 200-400 words for this continuation segment
 
 BRANCHING LOGIC:
@@ -201,9 +200,20 @@ STORY STRUCTURE:
 - Pick up immediately after the choice
 - Show the immediate consequences
 - Continue the adventure with appropriate pacing
-- End at a natural stopping point
+- End naturally when the story reaches a satisfying conclusion
 
-IMPORTANT: Respond ONLY with the story continuation content. No metadata, explanations, or notes. Just the story text ready for reading to a child.
+ENDING OPTIONS:
+You have two options for ending this segment:
+
+1. **NATURAL ENDING**: If the story has reached a satisfying conclusion (adventure completed, lesson learned, bedtime ready), end the story naturally without a choice point. Use phrases like "The End" or "And they all lived happily ever after."
+
+2. **CONTINUE WITH CHOICE**: If there's more adventure to be had, end with a choice point in this format:
+
+**Choice Point 1:** [Situation description where [CHILD_NAME] must decide]
+- Option A: [First meaningful choice with clear consequences]
+- Option B: [Second meaningful choice with different consequences]
+
+IMPORTANT: Respond ONLY with the story continuation content. If you include a choice point, format it exactly as shown above. If the story ends naturally, do not include any choice points.
 
 Story Continuation:`;
   }

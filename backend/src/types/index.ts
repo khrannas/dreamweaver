@@ -54,6 +54,7 @@ export interface GenerateStoriesResponse {
 export interface GenerateStoryContentRequest {
   storyId: string;
   profile: ChildProfile;
+  storyOption: StoryOption; // The selected story option
   choices?: Record<string, string>; // choiceId -> selectedChoiceId
 }
 

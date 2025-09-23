@@ -130,16 +130,8 @@ export class StoryController {
       // Save child profile to database first
       await DatabaseService.saveChildProfile(requestData.profile);
 
-      // Create story option with placeholders for database storage
-      const storyOption = {
-        id: storyId,
-        title: `Adventure for [CHILD_NAME]`, // Use placeholder for storage
-        description: `A personalized story featuring [CHILD_NAME] and their favorite ${requestData.profile.favoriteAnimal || 'animal'}`,
-        estimatedDuration: 10,
-        energyLevel: 'medium' as const,
-        contentTags: ['adventure', 'friendship'],
-        preview: `Join [CHILD_NAME] on an exciting adventure!`,
-      };
+      // Use the selected story option from the request
+      const storyOption = requestData.storyOption;
 
       // Generate story content with placeholders
       const response: GenerateStoryContentResponse = await StoryGenerationService.generateStoryContent(
@@ -433,6 +425,56 @@ export class StoryController {
   }
 
   /**
+   * Get saved stories with pagination
+   */
+  static async getSavedStoriesPaginated(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      // Validate pagination parameters
+      if (page < 1 || limit < 1 || limit > 50) {
+        const error = createAPIError(
+          'Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 50',
+          'VALIDATION_ERROR',
+          400
+        );
+        res.status(400).json({ error });
+        return;
+      }
+
+      const result = DatabaseService.getSavedStoriesPaginated(page, limit);
+
+      logger.info('Retrieved paginated saved stories', {
+        page,
+        limit,
+        storiesCount: result.stories.length,
+        totalCount: result.totalCount,
+        hasMore: result.hasMore
+      });
+
+      res.status(200).json({
+        stories: result.stories,
+        pagination: {
+          page,
+          limit,
+          totalCount: result.totalCount,
+          hasMore: result.hasMore,
+          totalPages: Math.ceil(result.totalCount / limit)
+        },
+        retrievedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('Failed to get paginated saved stories', { error });
+      next(createAPIError(
+        'Failed to retrieve paginated saved stories',
+        'DATABASE_ERROR',
+        500
+      ));
+    }
+  }
+
+  /**
    * Get a specific saved story with all its segments
    */
   static async getSavedStory(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -599,6 +641,30 @@ export class StoryController {
 
     try {
       let nextSegment;
+      let profile;
+
+      // Get the story and profile for placeholder replacement
+      const story = DatabaseService.getStory(storyId);
+      if (!story) {
+        const error = createAPIError(
+          'Story not found',
+          'NOT_FOUND',
+          404
+        );
+        res.status(404).json({ error });
+        return;
+      }
+
+      profile = DatabaseService.getChildProfile(story.childProfileId);
+      if (!profile) {
+        const error = createAPIError(
+          'Story or profile not found',
+          'NOT_FOUND',
+          404
+        );
+        res.status(404).json({ error });
+        return;
+      }
 
       if (!segmentId) {
         // Get initial segment
@@ -623,36 +689,26 @@ export class StoryController {
             return;
           }
 
-          // Get the story and profile to generate continuation
-          const story = DatabaseService.getStory(storyId);
-          if (!story) {
-            const error = createAPIError(
-              'Story not found',
-              'NOT_FOUND',
-              404
-            );
-            res.status(404).json({ error });
-            return;
-          }
-
-          const profile = DatabaseService.getChildProfile(story.childProfileId);
-
-          if (!profile) {
-            const error = createAPIError(
-              'Story or profile not found',
-              'NOT_FOUND',
-              404
-            );
-            res.status(404).json({ error });
-            return;
-          }
+          // Generate continuation using the already retrieved story and profile
 
           // Find the selected choice
+          logger.info('Looking for choice', {
+            choiceId,
+            availableChoices: parentSegment.choicePoints?.map(cp =>
+              cp.choices.map(c => ({ id: c.id, text: c.text.substring(0, 50) + '...' }))
+            )
+          });
+
           const selectedChoice = parentSegment.choicePoints?.find(cp =>
             cp.choices.some(c => c.id === choiceId)
           )?.choices.find(c => c.id === choiceId);
 
           if (!selectedChoice) {
+            logger.error('Choice not found', {
+              choiceId,
+              segmentId,
+              availableChoiceIds: parentSegment.choicePoints?.flatMap(cp => cp.choices.map(c => c.id))
+            });
             const error = createAPIError(
               'Choice not found in segment',
               'VALIDATION_ERROR',
@@ -713,15 +769,31 @@ export class StoryController {
         return;
       }
 
+      // Replace placeholders in the segment content before returning
+      const segmentWithReplacements = {
+        ...nextSegment,
+        content: PlaceholderUtils.replacePlaceholders(nextSegment.content, profile),
+        choicePoints: nextSegment.choicePoints?.map(choicePoint => ({
+          ...choicePoint,
+          text: PlaceholderUtils.replacePlaceholders(choicePoint.text, profile),
+          choices: choicePoint.choices?.map(choice => ({
+            ...choice,
+            text: PlaceholderUtils.replacePlaceholders(choice.text, profile),
+            outcome: choice.outcome ? PlaceholderUtils.replacePlaceholders(choice.outcome, profile) : choice.outcome,
+          })) || [],
+        })) || [],
+      };
+
       logger.info('Retrieved next story segment', {
         storyId,
         segmentId: nextSegment.id,
         choiceId,
-        generated: !nextSegment.parentSegmentId ? false : true
+        generated: !nextSegment.parentSegmentId ? false : true,
+        placeholdersReplaced: true
       });
 
       res.status(200).json({
-        segment: nextSegment,
+        segment: segmentWithReplacements,
         retrievedAt: new Date().toISOString()
       });
 
