@@ -55,8 +55,11 @@ export class StoryGenerationService {
       // Validate each story option
       const validatedStories = await this.validateStoryOptions(stories, profile);
 
+      // Apply diversity enforcement if stories are too similar
+      const diversityEnforcedStories = this.enforceDiversity(validatedStories);
+
       const response: GenerateStoriesResponse = {
-        stories: validatedStories,
+        stories: diversityEnforcedStories,
         generatedAt: new Date().toISOString(),
       };
 
@@ -189,7 +192,7 @@ export class StoryGenerationService {
         let title = '';
         let description = '';
         let duration = 10;
-        let energyLevel: 'high' | 'medium' | 'calming' = 'medium';
+        let energyLevel: 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming' = 'medium';
         let contentTags: string[] = ['adventure'];
 
         for (const line of lines) {
@@ -207,8 +210,9 @@ export class StoryGenerationService {
             }
           } else if (line.startsWith('ENERGY:')) {
             const energy = line.substring(7).trim().toLowerCase();
-            if (['high', 'medium', 'calming'].includes(energy)) {
-              energyLevel = energy as 'high' | 'medium' | 'calming';
+            const validEnergyLevels = ['energetic', 'peaceful', 'mystical', 'playful', 'cozy', 'adventurous', 'gentle', 'exciting', 'high', 'medium', 'calming'];
+            if (validEnergyLevels.includes(energy)) {
+              energyLevel = energy as 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming';
             }
           } else if (line.startsWith('TAGS:')) {
             const tagsStr = line.substring(5).trim();
@@ -248,7 +252,7 @@ export class StoryGenerationService {
             ...lastStory,
             id: `story_${stories.length + 1}_${Date.now()}`,
             title: lastStory.title + ' Continued',
-            energyLevel: lastStory.energyLevel === 'high' ? 'medium' : lastStory.energyLevel === 'medium' ? 'calming' : 'high' as 'high' | 'medium' | 'calming'
+            energyLevel: lastStory.energyLevel === 'energetic' ? 'peaceful' : lastStory.energyLevel === 'peaceful' ? 'mystical' : 'playful' as 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming'
           };
           stories.push(newStory);
         }
@@ -311,8 +315,8 @@ export class StoryGenerationService {
       const duration = durationMatch && durationMatch[1] ? parseInt(durationMatch[1], 10) : 10;
 
       // Extract energy level
-      const energyMatch = block.match(/Energy(?:\s+Level)?:\s*(high|medium|calming)/i);
-      const energyLevel = energyMatch && energyMatch[1] ? energyMatch[1].toLowerCase() as 'high' | 'medium' | 'calming' : 'medium';
+      const energyMatch = block.match(/Energy(?:\s+Level)?:\s*(energetic|peaceful|mystical|playful|cozy|adventurous|gentle|exciting|high|medium|calming)/i);
+      const energyLevel = energyMatch && energyMatch[1] ? energyMatch[1].toLowerCase() as 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming' : 'medium';
 
       // Extract tags
       const tagsMatch = block.match(/(?:Tags|Content Tags):\s*(.*?)(?:\n\n|\n(?:Duration|Energy|Story Options))/is);
@@ -644,5 +648,76 @@ export class StoryGenerationService {
     });
 
     return this.parseContinuationResponse(aiResponse);
+  }
+
+  /**
+   * Enforce diversity by modifying similar stories
+   */
+  private static enforceDiversity(stories: StoryOption[]): StoryOption[] {
+    if (stories.length < 2) return stories;
+
+    const enforcedStories = [...stories];
+
+    // Check for similar titles and modify them
+    for (let i = 0; i < enforcedStories.length; i++) {
+      for (let j = i + 1; j < enforcedStories.length; j++) {
+        const story1 = enforcedStories[i];
+        const story2 = enforcedStories[j];
+
+        if (story1 && story2) {
+          // Check for similar title keywords
+          const title1Words = story1.title.toLowerCase().split(/\s+/);
+          const title2Words = story2.title.toLowerCase().split(/\s+/);
+          const commonWords = title1Words.filter(word => title2Words.includes(word) && word.length > 3);
+
+          if (commonWords.length > 1) {
+            // Modify the second story's title to be more unique
+            story2.title = this.generateUniqueTitle(story2.title, story1.title);
+          }
+
+          // Check for similar energy levels
+          if (story1.energyLevel === story2.energyLevel) {
+            // Change the second story's energy level
+            const alternativeEnergies = ['energetic', 'peaceful', 'mystical', 'playful', 'cozy', 'adventurous', 'gentle', 'exciting'];
+            const differentEnergy = alternativeEnergies.find(energy => energy !== story1.energyLevel);
+            if (differentEnergy) {
+              story2.energyLevel = differentEnergy as any;
+            }
+          }
+        }
+      }
+    }
+
+    return enforcedStories;
+  }
+
+  /**
+   * Generate a more unique title by modifying common words
+   */
+  private static generateUniqueTitle(originalTitle: string, otherTitle: string): string {
+    const otherWords = otherTitle.toLowerCase().split(/\s+/);
+    const titleWords = originalTitle.split(/\s+/);
+
+    // Replace common words with synonyms
+    const synonyms: Record<string, string[]> = {
+      'great': ['amazing', 'wonderful', 'fantastic', 'incredible'],
+      'green': ['emerald', 'lush', 'vibrant', 'bright'],
+      'garden': ['meadow', 'grove', 'patch', 'plot'],
+      'rabbit': ['bunny', 'hare', 'cottontail', 'hoppity'],
+      'adventure': ['journey', 'quest', 'expedition', 'exploration'],
+      'race': ['chase', 'pursuit', 'hunt', 'search'],
+      'rescue': ['save', 'help', 'aid', 'assist']
+    };
+
+    const modifiedWords = titleWords.map(word => {
+      const lowerWord = word.toLowerCase();
+      if (otherWords.includes(lowerWord) && synonyms[lowerWord]) {
+        const alternatives = synonyms[lowerWord];
+        return alternatives[Math.floor(Math.random() * alternatives.length)];
+      }
+      return word;
+    });
+
+    return modifiedWords.join(' ');
   }
 }

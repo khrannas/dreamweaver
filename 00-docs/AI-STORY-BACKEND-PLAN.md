@@ -51,7 +51,7 @@ This document outlines the comprehensive backend implementation plan for **Story
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Project Structure (Lovable-Developable)
+### Project Structure (Dreamweaver-Compatible)
 ```
 backend/
 ├── src/
@@ -666,7 +666,7 @@ StoryMagic now has a **complete, production-ready AI-powered bedtime story platf
 ### Key Advantages
 
 1. **Zero Breaking Changes:** Frontend works with/without backend
-2. **Lovable-Compatible:** Clean TypeScript, standard dependencies
+2. **Dreamweaver-Compatible:** Clean TypeScript, standard dependencies
 3. **Near-Zero Cost:** Free primary model with ultra-cheap fallbacks (<$0.01/story)
 4. **Easy LLM Switching:** OpenRouter enables instant model changes
 5. **Docker + Zeabur:** One-click deployment with auto-scaling
@@ -674,7 +674,7 @@ StoryMagic now has a **complete, production-ready AI-powered bedtime story platf
 
 ### Implementation Ready
 
-The plan provides everything needed for your partner to develop through Lovable:
+The plan provides everything needed for your partner to develop through Dreamweaver:
 - Complete TypeScript codebase structure
 - OpenRouter integration with multiple model fallbacks
 - Docker configuration for Zeabur deployment

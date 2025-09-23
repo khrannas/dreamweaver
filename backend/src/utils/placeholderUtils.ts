@@ -37,7 +37,7 @@ export class PlaceholderUtils {
         title: string;
         description: string;
         estimatedDuration: number;
-        energyLevel: 'high' | 'medium' | 'calming';
+        energyLevel: 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming';
         contentTags: string[];
         preview: string;
     }, profile: ChildProfile) {
@@ -58,7 +58,7 @@ export class PlaceholderUtils {
         content: string;
         choicePoints: any[];
         duration: number;
-        energyLevel: 'high' | 'medium' | 'calming';
+        energyLevel: 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming';
         contentTags: string[];
     }, profile: ChildProfile) {
         return {

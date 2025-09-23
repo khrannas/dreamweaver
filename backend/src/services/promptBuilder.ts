@@ -2,14 +2,50 @@ import { ChildProfile, SavedStory, SavedStorySegment } from '../types/index.js';
 
 export class PromptBuilder {
   /**
-   * Build prompt for generating 3 story options with variance
+   * Build prompt for generating story options with enhanced variance
    */
   static buildStoryOptionsPrompt(profile: ChildProfile, count: number = 3): string {
-    // Generate varied story summaries with different energy levels, themes, and titles
-    const energyLevels = ['high', 'medium', 'calming'];
-    const themes = ['adventure', 'friendship', 'imagination', 'nature', 'kindness', 'family'];
+    // Enhanced energy levels with more nuanced options
+    const allEnergyLevels = ['energetic', 'peaceful', 'mystical', 'playful', 'cozy', 'adventurous', 'gentle', 'exciting'];
 
-    return `You are StoryMagic, a children's bedtime story generator. Create ${count} unique story options for a ${profile.age}-year-old child named [CHILD_NAME].
+    // Ensure at least 2 different energy levels by selecting diverse ones
+    const selectedEnergyLevels = this.selectDiverseEnergyLevels(allEnergyLevels, count);
+
+    // Expanded themes with more variety
+    const allThemes = [
+      'adventure', 'friendship', 'imagination', 'nature', 'kindness', 'family',
+      'discovery', 'magic', 'animals', 'space', 'underwater', 'forest',
+      'problem-solving', 'teamwork', 'creativity', 'exploration', 'mystery'
+    ];
+
+    // Select diverse themes to ensure variety
+    const selectedThemes = this.selectDiverseThemes(allThemes, count);
+
+    // Different title styles for variety
+    const allTitleStyles = [
+      'alliterative (e.g., "[CHILD_NAME] and the Amazing Adventure")',
+      'descriptive (e.g., "The Day [CHILD_NAME] Discovered Magic")',
+      'question-based (e.g., "What Happened When [CHILD_NAME] Found the Secret?")',
+      'action-oriented (e.g., "[CHILD_NAME] Saves the Day")',
+      'whimsical (e.g., "The Wonderful World of [CHILD_NAME]")'
+    ];
+
+    // Select diverse title styles
+    const selectedTitleStyles = this.selectDiverseTitleStyles(allTitleStyles, count);
+
+    // Different description styles
+    const allDescriptionStyles = [
+      'narrative (tell the story setup)',
+      'character-focused (emphasize [CHILD_NAME]\'s role)',
+      'setting-focused (describe the magical world)',
+      'problem-focused (present the challenge to solve)',
+      'mystery-focused (hint at secrets to discover)'
+    ];
+
+    // Select diverse description styles
+    const selectedDescriptionStyles = this.selectDiverseDescriptionStyles(allDescriptionStyles, count);
+
+    return `You are StoryMagic, a children's bedtime story generator. Create ${count} COMPLETELY UNIQUE story options for a ${profile.age}-year-old child named [CHILD_NAME].
 
 IMPORTANT: Use [CHILD_NAME] as placeholder for the child's name in ALL story content. Never use the actual name.
 
@@ -20,34 +56,87 @@ Child Profile (use ALL of this information in stories):
 ${profile.bestFriend ? `- Best Friend: ${profile.bestFriend}` : ''}
 ${profile.currentInterest ? `- Current Interest: ${profile.currentInterest}` : ''}
 
-Requirements:
-- Each story must feature [CHILD_NAME] as the main character/hero
+CRITICAL DIVERSITY REQUIREMENTS:
+- Each story must have a COMPLETELY DIFFERENT vibe, energy, and theme
 - Stories should be 200-600 words (5-15 minutes reading)
 - Include 2-3 meaningful choice points for interactivity
 - Use sleep-optimized structure: Engagement → Transition → Wind-down
 - Age-appropriate language and themes
 - End with calming, sleep-positive imagery
-- Create VARIANCE: Each story should have different energy level, theme, and title style
 
-ENERGY LEVEL VARIANCE: ${energyLevels.join(', ')}
-THEME VARIANCE: ${themes.join(', ')}
+AVAILABLE ENERGY LEVELS: ${allEnergyLevels.join(', ')}
+AVAILABLE THEMES: ${allThemes.join(', ')}
+TITLE STYLES: ${allTitleStyles.join(', ')}
+DESCRIPTION STYLES: ${allDescriptionStyles.join(', ')}
+
+STRICT VARIETY INSTRUCTIONS:
+- Story 1: Use ${selectedEnergyLevels[0]} energy, ${selectedThemes[0]} theme, ${selectedTitleStyles[0]} title style, ${selectedDescriptionStyles[0]} description style
+- Story 2: Use ${selectedEnergyLevels[1]} energy, ${selectedThemes[1]} theme, ${selectedTitleStyles[1]} title style, ${selectedDescriptionStyles[1]} description style
+- Story 3: Use ${selectedEnergyLevels[2]} energy, ${selectedThemes[2]} theme, ${selectedTitleStyles[2]} title style, ${selectedDescriptionStyles[2]} description style
+
+TITLE DIVERSITY CONSTRAINTS:
+- DO NOT repeat the same keywords across titles (e.g., if Story 1 uses "Race", Stories 2&3 cannot use "Race")
+- DO NOT use the same action words (e.g., "Chase", "Race", "Adventure") in multiple titles
+- Each title must have a UNIQUE focus: one about discovery, one about friendship, one about problem-solving
+- Vary the title structure: use different patterns for each story
+
+INTRODUCTION DIVERSITY CONSTRAINTS:
+- CRITICAL: Each story MUST start with a COMPLETELY DIFFERENT opening pattern
+- FORBIDDEN: Do NOT use "Deep in the heart of..." for multiple stories
+- FORBIDDEN: Do NOT use "One sunny morning, [CHILD_NAME] and their best friend..." for multiple stories
+- ASSIGN these UNIQUE opening patterns (one per story):
+  * Story 1: "Suddenly, a [mysterious event] appeared..."
+  * Story 2: "[CHILD_NAME] had always dreamed of..."
+  * Story 3: "The day started like any other, until..."
+- ALTERNATIVE patterns if needed:
+  * "A mysterious [object] led [CHILD_NAME] to..."
+  * "When [CHILD_NAME] discovered..."
+  * "In a world where [magical element]..."
+  * "As [CHILD_NAME] explored..."
+  * "The moment [CHILD_NAME] found..."
+- Each introduction must feel completely different in tone and approach
+- NO repeated phrases, words, or sentence structures across stories
 
 Return EXACTLY ${count} story options in this STRICT format (one after another):
 
 STORY 1:
-TITLE: [unique, engaging title using [CHILD_NAME]]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder and incorporating ALL profile details - favorite animal, color, best friend, current interest]
+TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[0]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
+DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[0]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "Suddenly, a [mysterious event] appeared..." - NO other opening pattern allowed]
 DURATION: [8-12]
-ENERGY: [one of: high,medium,calming]
-TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals]
+ENERGY: [${selectedEnergyLevels[0]}]
+TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
 
 STORY 2:
-[same format]
+TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[1]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
+DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[1]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "[CHILD_NAME] had always dreamed of..." - NO other opening pattern allowed]
+DURATION: [8-12]
+ENERGY: [${selectedEnergyLevels[1]}]
+TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
 
 STORY 3:
-[same format]
+TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[2]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
+DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[2]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "The day started like any other, until..." - NO other opening pattern allowed]
+DURATION: [8-12]
+ENERGY: [${selectedEnergyLevels[2]}]
+TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
 
-IMPORTANT: Each field MUST be on its own line. Do NOT include "DURATION:" or any field names in the DESCRIPTION. Return ONLY the story options, no additional text or explanations.`;
+CRITICAL REMINDERS:
+- Each field MUST be on its own line
+- Do NOT include "DURATION:" or any field names in the DESCRIPTION
+- TITLES must have NO repeated keywords across the three stories
+- DESCRIPTIONS must start with completely different opening patterns
+- ENERGY levels must be different (at least 2 different energy levels)
+- Return ONLY the story options, no additional text or explanations
+
+VALIDATION CHECKLIST (verify before submitting):
+✓ Story 1 title does NOT contain words used in Stories 2&3 titles
+✓ Story 2 title does NOT contain words used in Stories 1&3 titles
+✓ Story 3 title does NOT contain words used in Stories 1&2 titles
+✓ Story 1 description starts with "Suddenly, a [event] appeared..."
+✓ Story 2 description starts with "[CHILD_NAME] had always dreamed of..."
+✓ Story 3 description starts with "The day started like any other, until..."
+✓ At least 2 different energy levels are used
+✓ No repeated phrases or sentence structures across stories`;
   }
 
   /**
@@ -216,5 +305,86 @@ You have two options for ending this segment:
 IMPORTANT: Respond ONLY with the story continuation content. If you include a choice point, format it exactly as shown above. If the story ends naturally, do not include any choice points.
 
 Story Continuation:`;
+  }
+
+  /**
+   * Select diverse energy levels ensuring at least 2 different ones
+   */
+  private static selectDiverseEnergyLevels(allEnergyLevels: string[], count: number): string[] {
+    const selected: string[] = [];
+
+    // Ensure we have at least 2 different energy levels with contrasting vibes
+    if (count >= 2 && allEnergyLevels.length >= 2) {
+      // Select contrasting energy levels: one high-energy, one calm
+      selected.push('energetic'); // High energy
+      selected.push('peaceful'); // Calm energy
+
+      // For third story, pick something different from the first two
+      if (count >= 3) {
+        const contrastingOptions = ['mystical', 'playful', 'cozy', 'adventurous', 'gentle', 'exciting'];
+        const remaining = contrastingOptions.filter(level => !selected.includes(level));
+        if (remaining.length > 0) {
+          selected.push(remaining[Math.floor(Math.random() * remaining.length)]!);
+        } else {
+          selected.push('mystical'); // Fallback
+        }
+      }
+    } else if (allEnergyLevels.length > 0) {
+      // If only 1 story, just pick the first one
+      selected.push(allEnergyLevels[0]!);
+    }
+
+    return selected;
+  }
+
+  /**
+   * Select diverse themes ensuring variety
+   */
+  private static selectDiverseThemes(allThemes: string[], count: number): string[] {
+    const selected: string[] = [];
+    const shuffled = [...allThemes].sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < Math.min(count, shuffled.length); i++) {
+      const item = shuffled[i];
+      if (item) {
+        selected.push(item);
+      }
+    }
+
+    return selected;
+  }
+
+  /**
+   * Select diverse title styles ensuring variety
+   */
+  private static selectDiverseTitleStyles(allTitleStyles: string[], count: number): string[] {
+    const selected: string[] = [];
+    const shuffled = [...allTitleStyles].sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < Math.min(count, shuffled.length); i++) {
+      const item = shuffled[i];
+      if (item) {
+        selected.push(item);
+      }
+    }
+
+    return selected;
+  }
+
+  /**
+   * Select diverse description styles ensuring variety
+   */
+  private static selectDiverseDescriptionStyles(allDescriptionStyles: string[], count: number): string[] {
+    const selected: string[] = [];
+    const shuffled = [...allDescriptionStyles].sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < Math.min(count, shuffled.length); i++) {
+      const item = shuffled[i];
+      if (item) {
+        selected.push(item);
+      }
+    }
+
+    return selected;
   }
 }

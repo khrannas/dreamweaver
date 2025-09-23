@@ -15,7 +15,7 @@ export interface StoryOption {
   title: string;
   description: string;
   estimatedDuration: number; // in minutes
-  energyLevel: 'high' | 'medium' | 'calming';
+  energyLevel: 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming';
   contentTags: string[];
   preview: string;
 }
@@ -36,7 +36,7 @@ export interface StoryContent {
   content: string;
   choicePoints: ChoicePoint[];
   duration: number;
-  energyLevel: 'high' | 'medium' | 'calming';
+  energyLevel: 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming';
   contentTags: string[];
 }
 
@@ -102,7 +102,7 @@ export interface SavedStory {
   title: string;
   description: string;
   estimatedDuration: number;
-  energyLevel: 'high' | 'medium' | 'calming';
+  energyLevel: 'energetic' | 'peaceful' | 'mystical' | 'playful' | 'cozy' | 'adventurous' | 'gentle' | 'exciting' | 'high' | 'medium' | 'calming';
   contentTags: string[];
   preview: string;
   createdAt: string;
