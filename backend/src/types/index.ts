@@ -49,6 +49,7 @@ export interface GenerateStoriesRequest {
 export interface GenerateStoriesResponse {
   stories: StoryOption[];
   generatedAt: string;
+  allPreviews?: StoryOption[];
 }
 
 export interface GenerateStoryContentRequest {

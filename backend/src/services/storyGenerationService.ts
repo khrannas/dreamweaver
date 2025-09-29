@@ -17,17 +17,73 @@ export class StoryGenerationService {
    */
   static async generateStoryOptions(
     profile: ChildProfile,
-    count: number = 3
+    count: number = 3,
+    generalMessage?: string
   ): Promise<GenerateStoriesResponse> {
     try {
-      logger.info('Generating story options with enhanced prompts', { profile: profile.name, count });
+      logger.info('Generating story options', { count, usesShortPreviews: count >= 4 });
 
       const stories: StoryOption[] = [];
+
+      if (count >= 4) {
+        // Short previews flow: request concise one-sentence ideas
+        const prompt = PromptBuilder.buildShortPreviewPrompt(profile, count, generalMessage);
+
+        const aiResponse = await openRouterClient.generateCompletion(prompt, {
+          maxTokens: 400, // short output
+          temperature: 0.8,
+        });
+
+        // Parse numbered one-line responses into simple StoryOption entries
+        const raw = aiResponse.trim().replace(/^```.*?\n?/g, '').replace(/\n?```$/g, '');
+        const lines = raw.split(/\n+/).map(l => l.trim()).filter(l => l);
+        const previews: string[] = [];
+
+        for (const line of lines) {
+          const m = line.match(/^(?:\d+\.|\d+\))?\s*(.*)$/);
+          if (m && m[1]) {
+            const sentence = m[1].replace(/^[-:\s]*/, '').trim();
+            if (sentence.length > 0) previews.push(sentence);
+          }
+        }
+
+        // If AI returned fewer than requested, fallback to simple local augmentations
+        while (previews.length < count) {
+          previews.push(`A quiet bedtime idea about [CHILD_NAME] and a gentle adventure.`);
+        }
+
+        // Build StoryOption objects (simple titles and previews); descriptions will be empty for now
+        const allOptions: StoryOption[] = previews.map((p, i) => ({
+          id: `preview_${i + 1}_${Date.now()}`,
+          title: `Short Idea ${i + 1}`,
+          description: p,
+          estimatedDuration: 5,
+          energyLevel: 'calming',
+          contentTags: [],
+          preview: p
+        }));
+
+        // Select 3 most distinct previews
+        const selected = this.selectMostDistinctPreviews(allOptions, 3);
+
+        const response: GenerateStoriesResponse = {
+          stories: selected,
+          generatedAt: new Date().toISOString(),
+          // @ts-ignore add optional field carrying all previews for clients that want to show them
+          allPreviews: allOptions
+        } as any;
+
+        logger.info('Short previews generated', { totalRequested: count, returned: selected.length });
+        return response;
+      }
+
+      // Legacy detailed story flow for small counts
+      logger.info('Generating full story options with detailed prompts', { profile: profile.name, count });
 
       // Generate stories one by one with specific constraints for each
       for (let i = 0; i < count; i++) {
         try {
-          const prompt = PromptBuilder.buildSingleStoryPrompt(profile, i);
+          const prompt = PromptBuilder.buildSingleStoryPrompt(profile, i, generalMessage);
 
           const aiResponse = await openRouterClient.generateCompletion(prompt, {
             maxTokens: 1200, // More tokens for detailed content
@@ -66,19 +122,11 @@ export class StoryGenerationService {
       logger.info('Story options generated successfully with enhanced prompts', {
         storyCount: validatedStories.length,
         requestedCount: count,
-        profileDataUsed: {
-          name: profile.name,
-          age: profile.age,
-          favoriteAnimal: profile.favoriteAnimal,
-          favoriteColor: profile.favoriteColor,
-          bestFriend: profile.bestFriend,
-          currentInterest: profile.currentInterest
-        }
       });
 
       return response;
     } catch (error) {
-      logger.error('Failed to generate story options', { error, profile: profile.name });
+      logger.error('Failed to generate story options', { error });
       throw new Error('Unable to generate story options at this time');
     }
   }
@@ -786,5 +834,64 @@ export class StoryGenerationService {
     const newFirstSentence = firstSentence.replace(/^[^a-zA-Z]*/, newOpening + ' ');
 
     return newFirstSentence + (restOfDescription ? '. ' + restOfDescription : '');
+  }
+
+  /**
+   * Choose the k most distinct previews from a list using a greedy Jaccard distance heuristic
+   */
+  private static selectMostDistinctPreviews(options: StoryOption[], k: number): StoryOption[] {
+    if (options.length <= k) return options;
+
+    // Helper to build word set
+    const tokenize = (text: string) => text.toLowerCase().replace(/[.,!?:;"'()]/g, '').split(/\s+/).filter(Boolean);
+
+    const sets = options.map(o => new Set(tokenize(o.preview)));
+
+    // Jaccard distance
+    const jaccardDist = (a: Set<string>, b: Set<string>) => {
+      const inter = [...a].filter(x => b.has(x)).length;
+      const uni = new Set([...a, ...b]).size;
+      if (uni === 0) return 1;
+      const j = inter / uni;
+      return 1 - j; // distance
+    };
+
+    // Greedy selection: start with the preview that has the most unique words (largest set)
+    const selected: number[] = [];
+    const remaining = new Set(options.map((_, idx) => idx));
+
+    // Pick initial item as the one with largest set size
+    let firstIdx = 0;
+    let bestSize = -1;
+    sets.forEach((s, idx) => {
+      if (s.size > bestSize) {
+        bestSize = s.size;
+        firstIdx = idx;
+      }
+    });
+
+    selected.push(firstIdx);
+    remaining.delete(firstIdx);
+
+    while (selected.length < k && remaining.size > 0) {
+      let bestIdx = -1;
+      let bestMinDist = -1;
+
+      for (const idx of [...remaining]) {
+        // compute min distance to already selected
+        const distances = selected.map(sidx => jaccardDist(sets[sidx]!, sets[idx]!));
+        const d = Math.min(...distances);
+        if (d > bestMinDist) {
+          bestMinDist = d;
+          bestIdx = idx;
+        }
+      }
+
+      if (bestIdx === -1) break;
+      selected.push(bestIdx);
+      remaining.delete(bestIdx);
+    }
+
+    return selected.map(i => options[i]!);
   }
 }

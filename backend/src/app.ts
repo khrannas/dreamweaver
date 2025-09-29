@@ -121,6 +121,9 @@ apiRouter.post('/content/validate', StoryController.validateContent);
 // Static data routes
 apiRouter.get('/themes', StoryController.getThemes);
 
+// Curated general messages
+apiRouter.get('/stories/general-messages', StoryController.getGeneralMessages);
+
 // Mount API router
 app.use('/api', apiRouter);
 

@@ -8,18 +8,12 @@ export class PromptBuilder {
     // Enhanced energy levels with more nuanced options
     const allEnergyLevels = ['energetic', 'peaceful', 'mystical', 'playful', 'cozy', 'adventurous', 'gentle', 'exciting'];
 
-    // Ensure at least 2 different energy levels by selecting diverse ones
-    const selectedEnergyLevels = this.selectDiverseEnergyLevels(allEnergyLevels, count);
-
     // Expanded themes with more variety
     const allThemes = [
       'adventure', 'friendship', 'imagination', 'nature', 'kindness', 'family',
       'discovery', 'magic', 'animals', 'space', 'underwater', 'forest',
       'problem-solving', 'teamwork', 'creativity', 'exploration', 'mystery'
     ];
-
-    // Select diverse themes to ensure variety
-    const selectedThemes = this.selectDiverseThemes(allThemes, count);
 
     // Different title styles for variety
     const allTitleStyles = [
@@ -30,193 +24,72 @@ export class PromptBuilder {
       'whimsical (e.g., "The Wonderful World of [CHILD_NAME]")'
     ];
 
-    // Select diverse title styles
-    const selectedTitleStyles = this.selectDiverseTitleStyles(allTitleStyles, count);
-
     // Different description styles
     const allDescriptionStyles = [
       'narrative (tell the story setup)',
-      'character-focused (emphasize [CHILD_NAME]\'s role)',
+      "character-focused (emphasize [CHILD_NAME]'s role)",
       'setting-focused (describe the magical world)',
       'problem-focused (present the challenge to solve)',
       'mystery-focused (hint at secrets to discover)'
     ];
 
-    // Select diverse description styles
-    const selectedDescriptionStyles = this.selectDiverseDescriptionStyles(allDescriptionStyles, count);
+    const selectedEnergyLevels = this.selectDiverseEnergyLevels(allEnergyLevels, Math.min(count, 3));
+    const selectedThemes = this.selectDiverseThemes(allThemes, Math.min(count, 3));
+    const selectedTitleStyles = this.selectDiverseTitleStyles(allTitleStyles, Math.min(count, 3));
+    const selectedDescriptionStyles = this.selectDiverseDescriptionStyles(allDescriptionStyles, Math.min(count, 3));
 
-    return `You are StoryMagic, a children's bedtime story generator. Create ${count} COMPLETELY UNIQUE story options for a ${profile.age}-year-old child named [CHILD_NAME].
+    return `You are StoryMagic, a warm and concise children's bedtime story generator. Create ${count} unique story options for a ${profile.age}-year-old using [CHILD_NAME] as the child name placeholder (do NOT use the real name).
 
-IMPORTANT: Use [CHILD_NAME] as placeholder for the child's name in ALL story content. Never use the actual name.
-
-Child Profile (use ALL of this information in stories):
+Child details (use these naturally in each option):
 - Age: ${profile.age}
 - Favorite Animal: ${profile.favoriteAnimal}
 - Favorite Color: ${profile.favoriteColor}
 ${profile.bestFriend ? `- Best Friend: ${profile.bestFriend}` : ''}
 ${profile.currentInterest ? `- Current Interest: ${profile.currentInterest}` : ''}
 
-CRITICAL DIVERSITY REQUIREMENTS:
-- Each story must have a COMPLETELY DIFFERENT vibe, energy, and theme
-- Stories should be 200-600 words (5-15 minutes reading)
-- Include 2-3 meaningful choice points for interactivity
-- Use sleep-optimized structure: Engagement → Transition → Wind-down
-- Age-appropriate language and themes
-- End with calming, sleep-positive imagery
+Available energy levels: ${allEnergyLevels.join(', ')}
+Available themes (examples): ${allThemes.slice(0,8).join(', ')}
 
-AVAILABLE ENERGY LEVELS: ${allEnergyLevels.join(', ')}
-AVAILABLE THEMES: ${allThemes.join(', ')}
-TITLE STYLES: ${allTitleStyles.join(', ')}
-DESCRIPTION STYLES: ${allDescriptionStyles.join(', ')}
+Aim for variety. Example approach for the first three options: 
+1) ${selectedEnergyLevels[0]} energy • ${selectedThemes[0]} • ${selectedTitleStyles[0]} • ${selectedDescriptionStyles[0]}
+2) ${selectedEnergyLevels[1] || allEnergyLevels[1]} energy • ${selectedThemes[1] || allThemes[1]} • ${selectedTitleStyles[1] || allTitleStyles[1]} • ${selectedDescriptionStyles[1] || allDescriptionStyles[1]}
+3) ${selectedEnergyLevels[2] || allEnergyLevels[2]} energy • ${selectedThemes[2] || allThemes[2]} • ${selectedTitleStyles[2] || allTitleStyles[2]} • ${selectedDescriptionStyles[2] || allDescriptionStyles[2]}
 
-STRICT VARIETY INSTRUCTIONS:
-- Story 1: Use ${selectedEnergyLevels[0]} energy, ${selectedThemes[0]} theme, ${selectedTitleStyles[0]} title style, ${selectedDescriptionStyles[0]} description style
-- Story 2: Use ${selectedEnergyLevels[1]} energy, ${selectedThemes[1]} theme, ${selectedTitleStyles[1]} title style, ${selectedDescriptionStyles[1]} description style
-- Story 3: Use ${selectedEnergyLevels[2]} energy, ${selectedThemes[2]} theme, ${selectedTitleStyles[2]} title style, ${selectedDescriptionStyles[2]} description style
+For each option, return a clearly labeled block in this exact format (one block per story):
 
-TITLE DIVERSITY CONSTRAINTS:
-- DO NOT repeat the same keywords across titles (e.g., if Story 1 uses "Race", Stories 2&3 cannot use "Race")
-- DO NOT use the same action words (e.g., "Chase", "Race", "Adventure") in multiple titles
-- Each title must have a UNIQUE focus: one about discovery, one about friendship, one about problem-solving
-- Vary the title structure: use different patterns for each story
+STORY <n>:
+TITLE: [short, engaging title that may include [CHILD_NAME]]
+DESCRIPTION: [2 short sentences (gentle, age-appropriate), include at least one profile detail]
+DURATION: [minutes, suggest 8-12]
+ENERGY: [one word: energetic | peaceful | mystical | playful | cozy | adventurous | gentle | calming]
+TAGS: [2-3 comma-separated keywords]
 
-INTRODUCTION DIVERSITY CONSTRAINTS:
-- CRITICAL: Each story MUST start with a COMPLETELY DIFFERENT opening pattern
-- FORBIDDEN: Do NOT use "Suddenly" for multiple stories
-- FORBIDDEN: Do NOT use "Deep in the heart of..." for multiple stories
-- FORBIDDEN: Do NOT use "One sunny morning, [CHILD_NAME] and their best friend..." for multiple stories
-- ASSIGN these UNIQUE opening patterns (one per story):
-  * Story 1: "[CHILD_NAME] had always dreamed of [something magical]..."
-  * Story 2: "In the quiet [setting], [CHILD_NAME] discovered..."
-  * Story 3: "The day started like any other, until [CHILD_NAME] noticed..."
-- ALTERNATIVE patterns if needed:
-  * "A mysterious [object] led [CHILD_NAME] to..."
-  * "When [CHILD_NAME] discovered..."
-  * "In a world where [magical element]..."
-  * "As [CHILD_NAME] explored..."
-  * "The moment [CHILD_NAME] found..."
-- Each introduction must feel completely different in tone and approach
-- NO repeated phrases, words, or sentence structures across stories
+Requirements:
+- Produce exactly ${count} options, numbered 1 to ${count}.
+- Each option should feel distinct in theme and energy; avoid repeating core title keywords across options.
+- Keep tone comforting and non-scary; no violence, frightening imagery, or adult themes.
+- Use simple, clear language suitable for ages 3-8.
+- Do NOT add extra commentary or metadata beyond the requested blocks.
 
-Return EXACTLY ${count} story options in this STRICT format (one after another):
-
-STORY 1:
-TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[0]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[0]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "[CHILD_NAME] had always dreamed of [something magical]..." - NO other opening pattern allowed, NO "Suddenly"]
-DURATION: [8-12]
-ENERGY: [${selectedEnergyLevels[0]}]
-TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
-
-STORY 2:
-TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[1]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[1]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "In the quiet [setting], [CHILD_NAME] discovered..." - NO other opening pattern allowed, NO "Suddenly"]
-DURATION: [8-12]
-ENERGY: [${selectedEnergyLevels[1]}]
-TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
-
-STORY 3:
-TITLE: [unique, engaging title using [CHILD_NAME] with ${selectedTitleStyles[2]} - MUST be completely different from other titles, no repeated keywords like "Race", "Garden", "Quest"]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${selectedDescriptionStyles[2]} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "The day started like any other, until [CHILD_NAME] noticed..." - NO other opening pattern allowed, NO "Suddenly"]
-DURATION: [8-12]
-ENERGY: [${selectedEnergyLevels[2]}]
-TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
-
-CRITICAL REMINDERS:
-- Each field MUST be on its own line
-- Do NOT include "DURATION:" or any field names in the DESCRIPTION
-- TITLES must have NO repeated keywords across the three stories
-- DESCRIPTIONS must start with completely different opening patterns
-- ENERGY levels must be different (at least 2 different energy levels)
-- Return ONLY the story options, no additional text or explanations
-
-VALIDATION CHECKLIST (verify before submitting):
-✓ Story 1 title does NOT contain words used in Stories 2&3 titles
-✓ Story 2 title does NOT contain words used in Stories 1&3 titles
-✓ Story 3 title does NOT contain words used in Stories 1&2 titles
-✓ Story 1 description starts with "[CHILD_NAME] had always dreamed of [something magical]..."
-✓ Story 2 description starts with "In the quiet [setting], [CHILD_NAME] discovered..."
-✓ Story 3 description starts with "The day started like any other, until [CHILD_NAME] noticed..."
-✓ NO story uses "Suddenly" in the opening
-✓ At least 2 different energy levels are used
-✓ No repeated phrases or sentence structures across stories`;
+Return only the ${count} STORY blocks in the format above.`;
   }
 
   /**
    * Build prompt for generating a single story with specific constraints
    */
-  static buildSingleStoryPrompt(profile: ChildProfile, storyIndex: number): string {
-    const energyLevels = ['energetic', 'peaceful', 'mystical', 'playful', 'cozy', 'adventurous', 'gentle', 'exciting'];
-    const themes = [
-      'adventure', 'friendship', 'imagination', 'nature', 'kindness', 'family',
-      'discovery', 'magic', 'animals', 'space', 'underwater', 'forest',
-      'problem-solving', 'teamwork', 'creativity', 'exploration', 'mystery'
-    ];
-    const titleStyles = [
-      'alliterative (e.g., "[CHILD_NAME] and the Amazing Adventure")',
-      'descriptive (e.g., "The Day [CHILD_NAME] Discovered Magic")',
-      'question-based (e.g., "What Happened When [CHILD_NAME] Found the Secret?")',
-      'action-oriented (e.g., "[CHILD_NAME] Saves the Day")',
-      'whimsical (e.g., "The Wonderful World of [CHILD_NAME]")'
-    ];
-    const descriptionStyles = [
-      'narrative (tell the story setup)',
-      'character-focused (emphasize [CHILD_NAME]\'s role)',
-      'setting-focused (describe the magical world)',
-      'problem-focused (present the challenge to solve)',
-      'mystery-focused (hint at secrets to discover)'
-    ];
+  static buildSingleStoryPrompt(profile: ChildProfile, _storyIndex: number, generalMessage?: string): string {
+    const ageStr = profile && profile.age ? `${profile.age}` : 'a young child';
+    const themeHint = generalMessage ? `Focus on this message: "${generalMessage}".` : '';
 
-    // Assign specific elements based on story index
-    const energyLevel = energyLevels[storyIndex % energyLevels.length];
-    const theme = themes[storyIndex % themes.length];
-    const titleStyle = titleStyles[storyIndex % titleStyles.length];
-    const descriptionStyle = descriptionStyles[storyIndex % descriptionStyles.length];
+    return `You are StoryMagic, a warm and simple children's story idea generator.
+Create ONE clear story summary for a ${ageStr}-year-old using [CHILD_NAME] as a placeholder. ${themeHint}
+Output exactly:
+TITLE: [a short, engaging title]
+DESCRIPTION: [2-3 short sentences that capture the story, gentle tone]
+DURATION: [approx minutes]
+TAGS: [comma-separated keywords]
 
-    // Define specific opening patterns for each story
-    const openingPatterns = [
-      "[CHILD_NAME] had always dreamed of [something magical]...",
-      "In the quiet [setting], [CHILD_NAME] discovered...",
-      "The day started like any other, until [CHILD_NAME] noticed..."
-    ];
-    const openingPattern = openingPatterns[storyIndex % openingPatterns.length];
-
-    return `You are StoryMagic, a children's bedtime story generator. Create ONE unique story option for a ${profile.age}-year-old child named [CHILD_NAME].
-
-IMPORTANT: Use [CHILD_NAME] as placeholder for the child's name in ALL story content. Never use the actual name.
-
-Child Profile (use ALL of this information in stories):
-- Age: ${profile.age}
-- Favorite Animal: ${profile.favoriteAnimal}
-- Favorite Color: ${profile.favoriteColor}
-${profile.bestFriend ? `- Best Friend: ${profile.bestFriend}` : ''}
-${profile.currentInterest ? `- Current Interest: ${profile.currentInterest}` : ''}
-
-STORY REQUIREMENTS:
-- Energy Level: ${energyLevel}
-- Theme: ${theme}
-- Title Style: ${titleStyle}
-- Description Style: ${descriptionStyle}
-- Opening Pattern: ${openingPattern}
-
-CRITICAL CONSTRAINTS:
-- The description MUST start with: "${openingPattern}"
-- Do NOT use "Suddenly" or "One sunny morning" or "Deep in the heart"
-- Create a unique title that doesn't repeat common words like "Race", "Garden", "Quest"
-- Stories should be 200-600 words (5-15 minutes reading)
-- Include 2-3 meaningful choice points for interactivity
-- Use sleep-optimized structure: Engagement → Transition → Wind-down
-- Age-appropriate language and themes
-- End with calming, sleep-positive imagery
-
-Return EXACTLY ONE story option in this STRICT format:
-
-TITLE: [unique, engaging title using [CHILD_NAME] with ${titleStyle}]
-DESCRIPTION: [detailed 2-3 sentence description using [CHILD_NAME] placeholder, ${descriptionStyle} approach, incorporating ALL profile details - favorite animal, color, best friend, current interest. MUST start with "${openingPattern}"]
-DURATION: [8-12]
-ENERGY: [${energyLevel}]
-TAGS: [3 relevant tags from: adventure,friendship,imagination,nature,kindness,family,animals,discovery,magic,space,underwater,forest,problem-solving,teamwork,creativity,exploration,mystery]
-
-IMPORTANT: Each field MUST be on its own line. Do NOT include "DURATION:" or any field names in the DESCRIPTION. Return ONLY the story option, no additional text or explanations.`;
+Do not include anything else.`;
   }
 
   /**
@@ -227,65 +100,24 @@ IMPORTANT: Each field MUST be on its own line. Do NOT include "DURATION:" or any
     description: string;
     energyLevel: string;
   }, choices?: Record<string, string>): string {
-    const choiceInstructions = choices && Object.keys(choices).length > 0
-      ? `\nPrevious Choices Made (continue story from these decisions):\n${Object.entries(choices).map(([choiceId, selectedChoice]) =>
-        `- Choice ${choiceId}: ${selectedChoice}`
-      ).join('\n')}`
+    const ageStr = profile && profile.age ? `${profile.age}` : 'a young child';
+    const chosen = storyOption.description || '';
+    const prevChoices = choices && Object.keys(choices).length > 0
+      ? `Previous choices: ${Object.entries(choices).map(([k,v])=>`${k}: ${v}`).join('; ')}`
       : '';
 
-    return `You are StoryMagic, creating a personalized bedtime story for [CHILD_NAME], age ${profile.age}.
-
-IMPORTANT: Use [CHILD_NAME] as placeholder for the child's name in ALL story content. Never use the actual name.
-
+    return `You are StoryMagic. Write a warm, age-appropriate opening segment for a bedtime story for a ${ageStr}-year-old. Use [CHILD_NAME] as the main character placeholder.
 Story Title: ${storyOption.title}
-Story Description: ${storyOption.description}
-Energy Level: ${storyOption.energyLevel}
+Story Brief: ${chosen}
+${prevChoices}
 
-Child Profile (incorporate ALL of this information naturally):
-- Age: ${profile.age}
-- Favorite Animal: ${profile.favoriteAnimal}
-- Favorite Color: ${profile.favoriteColor}
-${profile.bestFriend ? `- Best Friend: ${profile.bestFriend}` : ''}
-${profile.currentInterest ? `- Current Interest: ${profile.currentInterest}` : ''}${choiceInstructions}
+Requirements:
+- Write a cozy, engaging opening of 150-300 words.
+- End the segment with ONE clear choice point offering two distinct options.
+- Keep language simple, non-scary, and suitable for bedtime.
+- Do NOT reveal the child's real name.
 
-STORY REQUIREMENTS:
-- Write in engaging, narrative style suitable for bedtime reading
-- Include **bold text** for emphasis and sound effects (*italics* for thoughts)
-- Use age-appropriate vocabulary for ages 3-8
-- Generate ONLY the initial story segment (150-300 words) that ends with the FIRST choice point
-- Do NOT continue the story beyond the first choice - stop after presenting the first choice point
-
-INTERACTIVE BRANCHING:
-- Present exactly ONE meaningful choice point at the end of this initial segment
-- The choice must offer two distinct paths that will lead to different story outcomes
-- Do NOT write what happens after the choice is made
-- End the story segment with the choice point presentation
-
-STORY STRUCTURE:
-**Initial Segment Only:** Create an engaging opening that builds excitement and naturally leads to the first choice point
-
-CHILD INTEGRATION:
-- [CHILD_NAME] is the main character throughout the ENTIRE story
-- Naturally incorporate ALL profile elements: ${profile.favoriteAnimal}, ${profile.favoriteColor}${profile.bestFriend ? `, ${profile.bestFriend}` : ''}${profile.currentInterest ? `, ${profile.currentInterest}` : ''}
-- Make the story feel deeply personal and magical
-
-SAFETY REQUIREMENTS:
-- No scary content, violence, or frightening themes
-- Positive, uplifting message about kindness and friendship
-- End with comforting, sleep-positive conclusion
-
-CHOICE POINTS FORMAT (exactly 2 points):
-**Choice Point 1:** [Situation description where [CHILD_NAME] must decide]
-- Option A: [First meaningful choice with clear consequences]
-- Option B: [Second meaningful choice with different consequences]
-
-**Choice Point 2:** [Later situation that builds on previous choice, creating branching narrative]
-- Option A: [First choice continuing from Choice Point 1 decision]
-- Option B: [Second choice continuing from Choice Point 1 decision]
-
-IMPORTANT: Respond ONLY with the complete story content. No metadata, explanations, or improvement notes. Just the story ready for reading to a child.
-
-Complete Story:`;
+Respond only with the story text and the choice point in a clear format.`;
   }
 
   /**
@@ -466,5 +298,136 @@ Story Continuation:`;
     }
 
     return selected;
+  }
+
+  /**
+   * Return a curated list of 100 general messages/values suitable for children's stories
+   */
+  static getGeneralMessageRecommendations(): string[] {
+    // Curated values/messages parents may want to convey through a story
+    return [
+      "Be kind to others",
+      "Always be curious",
+      "Bravery comes in small steps",
+      "Share what you have",
+      "Be a good friend",
+      "Try your best",
+      "It's okay to ask for help",
+      "Treat animals gently",
+      "Say please and thank you",
+      "Be honest and kind",
+      "You are loved",
+      "Celebrate differences",
+      "Be brave when you're scared",
+      "Listen to your heart",
+      "Take care of nature",
+      "Learn from mistakes",
+      "Help others when you can",
+      "Friends help each other",
+      "Use your imagination",
+      "Small acts matter",
+      "Be patient",
+      "Be grateful",
+      "Respect everyone",
+      "Try new things",
+      "Family is important",
+      "Be gentle with yourself",
+      "Be fair",
+      "Take turns",
+      "Be polite",
+      "Ask questions",
+      "Stand up for what's right",
+      "Keep your promises",
+      "Be adventurous",
+      "Be creative",
+      "Take deep breaths when upset",
+      "Believe in yourself",
+      "Be a helper",
+      "Be a good listener",
+      "Be a problem solver",
+      "It's okay to feel sad",
+      "You can learn anything",
+      "Kind words matter",
+      "Be a team player",
+      "Keep trying",
+      "Be mindful",
+      "Be respectful",
+      "Be curious about the world",
+      "Be gentle with nature",
+      "Be generous",
+      "Take care of others",
+      "Dream big",
+      "Show empathy",
+      "Be brave to say sorry",
+      "Be proud of who you are",
+      "Honesty builds trust",
+      "Be helpful at home",
+      "Be a good neighbor",
+      "Admit when you're wrong",
+      "Take care of your things",
+      "Learn to share",
+      "Be a kind leader",
+      "Be brave to try again",
+      "Use kind hands",
+      "Learn from others",
+      "Make time to play",
+      "Be safe",
+      "Be a creative thinker",
+      "Take care of your feelings",
+      "Be a good sport",
+      "Encourage friends",
+      "Be gentle with animals",
+      "Respect grown-ups",
+      "Stand by your friends",
+      "Be calm in tough times",
+      "Be a helper in your community",
+      "Speak up kindly",
+      "Take on challenges slowly",
+      "Be honest about your feelings",
+      "Care for the planet",
+      "Be patient with learning",
+      "Be thankful",
+      "Be a peacemaker",
+      "Practice kindness every day",
+      "Share your imagination",
+      "Be thoughtful",
+      "Be a curious explorer",
+      "Value friendships",
+      "Be flexible",
+      "Be a caring sibling",
+      "Make people smile",
+      "Be brave and gentle",
+      "Be loyal",
+      "Show gratitude",
+      "Use your talents for good",
+      "Be mindful of others",
+      "Be a brave learner",
+      "Celebrate small wins"
+    ];
+  }
+
+  /**
+   * Build a simple, elegant prompt to generate short one-sentence story previews.
+   * Each preview should be a single sentence (max 30 words) and use [CHILD_NAME] placeholder
+   */
+  static buildShortPreviewPrompt(profile: any, count: number = 10, generalMessage?: string): string {
+    const ageStr = profile && profile.age ? `${profile.age}` : 'a young child';
+    const gm = generalMessage ? `Theme/Message: "${generalMessage}".` : '';
+
+    return `You are a gentle and concise children's story idea generator.
+Produce exactly ${count} distinct, one-sentence story ideas for a ${ageStr}-year-old child. Each idea must:
+- Be exactly one sentence, no lists or extra commentary.
+- Be at most 30 words.
+- Use the placeholder [CHILD_NAME] if the child's name is necessary.
+- Be simple, heartwarming, and suitable for bedtime.
+- Optionally incorporate this message if provided: ${gm}
+
+Output format, one per line numbered 1-${count}:
+1. [first idea]
+2. [second idea]
+...
+${count}. [last idea]
+
+Do not include anything else.`;
   }
 }

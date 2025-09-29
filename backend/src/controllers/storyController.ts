@@ -9,7 +9,6 @@ import {
 import { StoryGenerationService } from '../services/storyGenerationService.js';
 import { DatabaseService, SavedStorySegment, UserPreferences } from '../services/databaseService.js';
 import { ContentSafetyService } from '../services/contentSafetyService.js';
-import { PlaceholderUtils } from '../utils/placeholderUtils.js';
 import { PromptBuilder } from '../services/promptBuilder.js';
 import { openRouterClient } from '../config/openai.js';
 import {
@@ -27,12 +26,14 @@ export class StoryController {
   static async generateStories(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const requestData: GenerateStoriesRequest = req.body;
-      const count = req.query.count ? parseInt(req.query.count as string, 10) : 3;
+      const count = req.query.count ? parseInt(req.query.count as string, 10) : (requestData.count || 3);
+      const generalMessage = (requestData as any).generalMessage as string | undefined;
 
       // Validate request
       const validation = validateGenerateStoriesRequest({
         ...requestData,
         count,
+        generalMessage
       });
 
       if (!validation.isValid) {
@@ -47,33 +48,25 @@ export class StoryController {
       }
 
       logger.info('Generating story options', {
-        childName: requestData.profile.name,
-        age: requestData.profile.age,
+        age: requestData.profile?.age,
         count,
       });
 
       // Generate stories
       const response: GenerateStoriesResponse = await StoryGenerationService.generateStoryOptions(
         requestData.profile,
-        count
+        count,
+        generalMessage
       );
 
-      // Replace placeholders in story previews for immediate display
-      const storiesWithReplacedPlaceholders = response.stories.map(story => ({
-        ...story,
-        preview: PlaceholderUtils.replacePlaceholders(story.preview, requestData.profile),
-        title: PlaceholderUtils.replacePlaceholders(story.title, requestData.profile),
-        description: PlaceholderUtils.replacePlaceholders(story.description, requestData.profile)
-      }));
-
       logger.info('Story options generated successfully', {
-        storyCount: storiesWithReplacedPlaceholders.length,
-        childName: requestData.profile.name,
+        storyCount: response.stories.length,
+        // Do NOT log child's real name or PII here - name should remain local
       });
 
+      // Return stories WITH placeholders intact. The frontend will replace [CHILD_NAME] locally.
       res.status(200).json({
         ...response,
-        stories: storiesWithReplacedPlaceholders
       });
     } catch (error) {
       logger.error('Failed to generate stories', { error });
@@ -128,12 +121,17 @@ export class StoryController {
       });
 
       // Save child profile to database first
+      // Sanitization: ensure we don't store real child name on the server. Replace with placeholder if present.
+      if (requestData.profile && requestData.profile.name && !requestData.profile.name.includes('[CHILD_NAME]')) {
+        requestData.profile.name = '[CHILD_NAME]';
+      }
+
       await DatabaseService.saveChildProfile(requestData.profile);
 
       // Use the selected story option from the request
       const storyOption = requestData.storyOption;
 
-      // Generate story content with placeholders
+      // Generate story content with placeholders (do not replace with real name here)
       const response: GenerateStoryContentResponse = await StoryGenerationService.generateStoryContent(
         storyId,
         requestData.profile,
@@ -141,18 +139,16 @@ export class StoryController {
         requestData.choices
       );
 
-      // Replace placeholders in the story content before sending to frontend
-      const storyWithReplacements = PlaceholderUtils.replaceStoryContentPlaceholders(response.story, requestData.profile);
-
+      // Return generated story with placeholders intact; frontend will perform local replacement for display
       logger.info('Story content generated successfully', {
         storyId,
-        wordCount: storyWithReplacements.content.split(/\s+/).length,
-        choicePoints: storyWithReplacements.choicePoints.length,
+        wordCount: response.story.content.split(/\s+/).length,
+        choicePoints: response.story.choicePoints.length,
       });
 
       res.status(200).json({
         ...response,
-        story: storyWithReplacements
+        story: response.story
       });
     } catch (error) {
       logger.error('Failed to generate story content', { error, storyId });
@@ -504,34 +500,26 @@ export class StoryController {
 
       const segments = DatabaseService.getStorySegments(storyId);
 
-      // Replace placeholders with actual child profile data for replay
-      const storyWithReplacements = {
+      // Return story and segments with placeholders intact. Frontend should replace [CHILD_NAME] locally.
+      const storyWithPlaceholders = {
         ...story,
-        title: PlaceholderUtils.replacePlaceholders(story.title, story.childProfile!),
-        description: PlaceholderUtils.replacePlaceholders(story.description, story.childProfile!),
-        preview: PlaceholderUtils.replacePlaceholders(story.preview, story.childProfile!),
+        // keep title, description, preview as stored (placeholders)
       };
 
-      const segmentsWithReplacements = segments.map(segment => ({
+      const segmentsWithPlaceholders = segments.map(segment => ({
         ...segment,
-        content: PlaceholderUtils.replacePlaceholders(segment.content, story.childProfile!),
-        choiceText: segment.choiceText ? PlaceholderUtils.replacePlaceholders(segment.choiceText, story.childProfile!) : segment.choiceText,
-        choicePoints: segment.choicePoints?.map(choicePoint => ({
-          ...choicePoint,
-          text: PlaceholderUtils.replacePlaceholders(choicePoint.text, story.childProfile!),
-        })) || undefined,
+        // keep content and choice placeholders intact
       }));
 
-      logger.info('Story retrieved for replay with placeholder replacement', {
+      logger.info('Story retrieved for replay (placeholders preserved)', {
         storyId,
-        childName: story.childProfile?.name,
-        segmentsCount: segmentsWithReplacements.length,
-        placeholdersReplaced: true
+        segmentsCount: segmentsWithPlaceholders.length,
+        placeholdersPreserved: true
       });
 
       res.status(200).json({
-        story: storyWithReplacements,
-        segments: segmentsWithReplacements,
+        story: storyWithPlaceholders,
+        segments: segmentsWithPlaceholders,
         retrievedAt: new Date().toISOString()
       });
     } catch (error) {
@@ -769,19 +757,10 @@ export class StoryController {
         return;
       }
 
-      // Replace placeholders in the segment content before returning
-      const segmentWithReplacements = {
+      // Return the segment with placeholders preserved. Frontend should replace [CHILD_NAME] locally.
+      const segmentWithPlaceholders = {
         ...nextSegment,
-        content: PlaceholderUtils.replacePlaceholders(nextSegment.content, profile),
-        choicePoints: nextSegment.choicePoints?.map(choicePoint => ({
-          ...choicePoint,
-          text: PlaceholderUtils.replacePlaceholders(choicePoint.text, profile),
-          choices: choicePoint.choices?.map(choice => ({
-            ...choice,
-            text: PlaceholderUtils.replacePlaceholders(choice.text, profile),
-            outcome: choice.outcome ? PlaceholderUtils.replacePlaceholders(choice.outcome, profile) : choice.outcome,
-          })) || [],
-        })) || [],
+        // content and choicePoints contain placeholders as stored
       };
 
       logger.info('Retrieved next story segment', {
@@ -789,11 +768,11 @@ export class StoryController {
         segmentId: nextSegment.id,
         choiceId,
         generated: !nextSegment.parentSegmentId ? false : true,
-        placeholdersReplaced: true
+        placeholdersPreserved: true
       });
 
       res.status(200).json({
-        segment: segmentWithReplacements,
+        segment: segmentWithPlaceholders,
         retrievedAt: new Date().toISOString()
       });
 
@@ -927,7 +906,7 @@ export class StoryController {
       res.status(200).json({
         segment: {
           ...newSegment,
-          content: PlaceholderUtils.replacePlaceholders(newSegment.content, profile)
+          // content contains placeholders; frontend will replace [CHILD_NAME] locally
         },
         generatedAt: new Date().toISOString()
       });
@@ -940,5 +919,13 @@ export class StoryController {
         500
       ));
     }
+  }
+
+  /**
+   * Return curated general message recommendations
+   */
+  static async getGeneralMessages(_req: Request, res: Response): Promise<void> {
+    const messages = PromptBuilder.getGeneralMessageRecommendations();
+    res.status(200).json({ messages, count: messages.length });
   }
 }
